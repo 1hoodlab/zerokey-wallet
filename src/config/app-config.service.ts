@@ -18,8 +18,8 @@ export class AppConfigService {
     return this.configService.getOrThrow<Hex>('SERVER_EOA_PRIVATE_KEY');
   }
 
-  get rhinestoneApiKey(): string {
-    return this.configService.getOrThrow<string>('RHINESTONE_API_KEY');
+  get pimlicoApiKey(): string {
+    return this.configService.getOrThrow<string>('PIMLICO_API_KEY');
   }
 
   get baseSepoliaRpcUrl(): string {

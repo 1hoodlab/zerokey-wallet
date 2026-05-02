@@ -8,7 +8,7 @@ export const envSchema = Joi.object({
   SERVER_EOA_PRIVATE_KEY: Joi.string()
     .pattern(/^0x[a-fA-F0-9]{64}$/)
     .required(),
-  RHINESTONE_API_KEY: Joi.string().min(1).required(),
+  PIMLICO_API_KEY: Joi.string().min(1).required(),
   BASE_SEPOLIA_RPC_URL: Joi.string().uri().required(),
   USDC_ADDRESS_BASE_SEPOLIA: Joi.string()
     .pattern(/^0x[a-fA-F0-9]{40}$/)

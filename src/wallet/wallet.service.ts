@@ -11,7 +11,10 @@ import {
 } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { RhinestoneSDK, type RhinestoneAccount, type UserOperationResult } from '@rhinestone/sdk';
+import { entryPoint07Address, type SmartAccount } from 'viem/account-abstraction';
+import { createSmartAccountClient } from 'permissionless';
+import { SafeSmartAccount } from 'permissionless/accounts/safe';
+import { createPimlicoClient } from 'permissionless/clients/pimlico';
 import { AppConfigService } from '../config/app-config.service';
 import { WalletNetworkError } from '../common/exceptions';
 
@@ -19,23 +22,21 @@ import { WalletNetworkError } from '../common/exceptions';
 export class WalletService {
   private readonly logger = new Logger(WalletService.name);
   private readonly publicClient;
-  private readonly rhinestone: RhinestoneSDK;
   private readonly serverAccount: PrivateKeyAccount;
+  private readonly pimlicoRpcUrl: string;
 
   constructor(private readonly appConfigService: AppConfigService) {
     this.publicClient = createPublicClient({
       chain: baseSepolia,
       transport: http(this.appConfigService.baseSepoliaRpcUrl),
     });
-    this.rhinestone = new RhinestoneSDK({
-      apiKey: this.appConfigService.rhinestoneApiKey,
-    });
     this.serverAccount = privateKeyToAccount(this.appConfigService.serverEoaPrivateKey);
+    this.pimlicoRpcUrl = `https://api.pimlico.io/v2/${baseSepolia.id}/rpc?apikey=${this.appConfigService.pimlicoApiKey}`;
   }
 
   async deriveAddress(telegramId: bigint): Promise<Hex> {
     const account = await this.createSmartAccount(telegramId);
-    return getAddress(account.getAddress());
+    return getAddress(account.address);
   }
 
   async getUsdcBalance(address: Hex): Promise<bigint> {
@@ -57,46 +58,59 @@ export class WalletService {
 
   async sendUsdc(telegramId: bigint, recipientAddress: Hex, amountBaseUnits: bigint): Promise<Hex> {
     return this.withSingleRetry(async () => {
-      const account = await this.createSmartAccount(telegramId);
-      const transaction = await account.sendUserOperation({
-        chain: baseSepolia,
-        calls: [
-          {
-            to: this.appConfigService.usdcAddress,
-            value: 0n,
-            data: encodeFunctionData({
-              abi: erc20Abi,
-              functionName: 'transfer',
-              args: [recipientAddress, amountBaseUnits],
-            }),
-          },
-        ],
-      });
+      const smartAccountClient = await this.createSmartAccountClient(telegramId);
 
-      return transaction.hash;
+      return smartAccountClient.sendTransaction({
+        to: this.appConfigService.usdcAddress,
+        value: 0n,
+        data: encodeFunctionData({
+          abi: erc20Abi,
+          functionName: 'transfer',
+          args: [recipientAddress, amountBaseUnits],
+        }),
+      });
     });
   }
 
   async waitForUsdcTransfer(telegramId: bigint, hash: Hex): Promise<void> {
-    const account = await this.createSmartAccount(telegramId);
-    const userOperationResult: UserOperationResult = {
-      type: 'userop',
-      hash,
-      chain: baseSepolia.id,
-    };
-    await account.waitForExecution(userOperationResult);
+    await this.createSmartAccount(telegramId);
+    await this.publicClient.waitForTransactionReceipt({ hash });
   }
 
-  private async createSmartAccount(telegramId: bigint): Promise<RhinestoneAccount> {
-    return this.rhinestone.createAccount({
-      owners: {
-        type: 'ecdsa',
-        accounts: [this.serverAccount],
-        threshold: 1,
+  private async createSmartAccount(telegramId: bigint): Promise<SmartAccount> {
+    return SafeSmartAccount.toSafeSmartAccount({
+      client: this.publicClient,
+      owners: [this.serverAccount],
+      threshold: 1n,
+      version: '1.4.1',
+      entryPoint: {
+        address: entryPoint07Address,
+        version: '0.7',
       },
-      account: {
-        type: 'safe',
-        nonce: telegramId,
+      saltNonce: telegramId,
+    });
+  }
+
+  private async createSmartAccountClient(telegramId: bigint) {
+    const account = await this.createSmartAccount(telegramId);
+    const pimlicoClient = createPimlicoClient({
+      chain: baseSepolia,
+      transport: http(this.pimlicoRpcUrl),
+      entryPoint: {
+        address: entryPoint07Address,
+        version: '0.7',
+      },
+    });
+
+    return createSmartAccountClient({
+      account,
+      chain: baseSepolia,
+      client: this.publicClient,
+      bundlerTransport: http(this.pimlicoRpcUrl),
+      userOperation: {
+        estimateFeesPerGas: async () => {
+          return (await pimlicoClient.getUserOperationGasPrice()).fast;
+        },
       },
     });
   }

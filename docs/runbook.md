@@ -19,11 +19,11 @@ pnpm prisma generate
 Prisma 7 reads `DATABASE_URL` from `prisma.config.ts`, so keep `.env` populated
 before running CLI commands.
 
-## Refill Server EOA Gas
+## Refill Smart Account Gas
 
-1. Derive the server EOA address from `SERVER_EOA_PRIVATE_KEY` using a local wallet tool.
+1. Use `/address` to get the user's smart account address.
 2. Send Base Sepolia ETH from a faucet to that address.
-3. Restart the bot if transfer failures were caused by an empty EOA.
+3. Retry the transfer if failures were caused by an empty smart account.
 
 Never paste `SERVER_EOA_PRIVATE_KEY` into logs, tickets, or shared chats.
 
@@ -50,8 +50,8 @@ Look for these cases:
 
 - `FAILED`: broadcast or wallet SDK call failed.
 - `TIMEOUT`: receipt polling did not complete in the expected window.
-- `Wallet operation failed after retry`: RPC, bundler, or Rhinestone path failed.
-- EOA gas errors: refill the server EOA with Base Sepolia ETH.
+- `Wallet operation failed after retry`: RPC, bundler, or Pimlico path failed.
+- Smart account gas errors: refill the user's smart account with Base Sepolia ETH.
 
 ## Wallet Integration Tests
 
@@ -60,14 +60,14 @@ are provided:
 
 ```bash
 TEST_SERVER_EOA_PRIVATE_KEY="0x..."
-TEST_RHINESTONE_API_KEY="..."
+TEST_PIMLICO_API_KEY="..."
 TEST_BASE_SEPOLIA_RPC_URL="https://sepolia.base.org"
 TEST_USDC_ADDRESS_BASE_SEPOLIA="0x036CbD53842c5426634e7929541eC2318f3dCF7e"
 pnpm test:integration
 ```
 
-The integration gate remains blocked until a funded Base Sepolia EOA and
-Rhinestone API key are available.
+The integration gate remains blocked until a funded Base Sepolia smart account and
+Pimlico API key are available.
 
 ## Manual Smoke Test
 

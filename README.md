@@ -15,7 +15,7 @@ pnpm start:dev
 ```
 
 Before starting the bot, edit `.env` with a Telegram bot token, a funded Base
-Sepolia server EOA private key, and a Rhinestone API key.
+Sepolia server EOA private key, and a Pimlico API key.
 
 ## Commands
 

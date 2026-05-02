@@ -11,16 +11,16 @@ any server compromise can control all MVP-A smart accounts.
 
 ## Modules
 
-| Module           | Path                | Responsibility                              |
-| ---------------- | ------------------- | ------------------------------------------- |
-| `AppModule`      | `src/app.module.ts` | Root composition                            |
-| `ConfigModule`   | `src/config/`       | `.env` loading and Joi validation           |
-| `DatabaseModule` | `src/database/`     | Prisma client lifecycle                     |
-| `WalletModule`   | `src/wallet/`       | Rhinestone SDK and Base Sepolia USDC access |
-| `AccountModule`  | `src/account/`      | Deterministic user account persistence      |
-| `OtpModule`      | `src/otp/`          | OTP generation, hashing, expiry, retry math |
-| `TransferModule` | `src/transfer/`     | OTP-gated transfer state machine            |
-| `BotModule`      | `src/bot/`          | grammY bot lifecycle and command handlers   |
+| Module           | Path                | Responsibility                               |
+| ---------------- | ------------------- | -------------------------------------------- |
+| `AppModule`      | `src/app.module.ts` | Root composition                             |
+| `ConfigModule`   | `src/config/`       | `.env` loading and Joi validation            |
+| `DatabaseModule` | `src/database/`     | Prisma client lifecycle                      |
+| `WalletModule`   | `src/wallet/`       | Pimlico bundler and Base Sepolia USDC access |
+| `AccountModule`  | `src/account/`      | Deterministic user account persistence       |
+| `OtpModule`      | `src/otp/`          | OTP generation, hashing, expiry, retry math  |
+| `TransferModule` | `src/transfer/`     | OTP-gated transfer state machine             |
+| `BotModule`      | `src/bot/`          | grammY bot lifecycle and command handlers    |
 
 ## Command Flows
 

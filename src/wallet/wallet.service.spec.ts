@@ -7,7 +7,7 @@ describe('WalletService', () => {
     serverEoaPrivateKey: '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     baseSepoliaRpcUrl: 'https://sepolia.base.org',
     usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-    rhinestoneApiKey: 'test-rhinestone-api-key',
+    pimlicoApiKey: 'test-pimlico-api-key',
   };
 
   it('creates a service with validated config', async () => {
