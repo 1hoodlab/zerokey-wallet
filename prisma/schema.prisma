@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  telegramId BigInt            @id @map("telegram_id")
+  address    String            @unique
+  createdAt  DateTime          @default(now()) @map("created_at")
+  transfers  PendingTransfer[]
+
+  @@map("users")
+}
+
+model PendingTransfer {
+  id          String         @id @default(uuid())
+  telegramId  BigInt         @map("telegram_id")
+  user        User           @relation(fields: [telegramId], references: [telegramId])
+  recipient   String
+  amount      String
+  otpHash     String         @map("otp_hash")
+  retryCount  Int            @default(0) @map("retry_count")
+  status      TransferStatus
+  txHash      String?        @map("tx_hash")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  confirmedAt DateTime?      @map("confirmed_at")
+
+  @@index([telegramId, status])
+  @@map("pending_transfers")
+}
+
+enum TransferStatus {
+  AWAITING_OTP
+  BROADCASTING
+  SUBMITTED
+  CONFIRMED
+  TIMEOUT
+  FAILED
+  EXPIRED
+  CANCELLED
+}
