@@ -5,6 +5,10 @@ import type { TransferService } from '../../transfer/transfer.service';
 import type { WalletService } from '../../wallet/wallet.service';
 import { getMessageText, getTelegramId } from './context';
 
+function escapeTelegramHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 export async function handleSend(
   ctx: Context,
   accountService: Pick<AccountService, 'getOrCreate'>,
@@ -60,12 +64,16 @@ export async function handleSend(
     recipientAddress as Hex,
     amountBaseUnits,
   );
+  const amountFormatted = escapeTelegramHtml(walletService.formatUsdc(amountBaseUnits));
+  const recipientEscaped = escapeTelegramHtml(recipientAddress);
+
   await ctx.reply(
     [
-      `Confirm send of ${walletService.formatUsdc(amountBaseUnits)} USDC.`,
-      `Recipient: ${recipientAddress}`,
-      `OTP: ${transfer.code}`,
+      `Confirm send of ${amountFormatted} USDC.`,
+      `Recipient: ${recipientEscaped}`,
+      `OTP: <tg-spoiler>${escapeTelegramHtml(transfer.code)}</tg-spoiler>`,
       'Reply with the 6-digit OTP within 5 minutes.',
     ].join('\n'),
+    { parse_mode: 'HTML' },
   );
 }

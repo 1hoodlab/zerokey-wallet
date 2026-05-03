@@ -56,7 +56,11 @@ export class TransferService {
     return { transferId: pendingTransfer.id, code };
   }
 
-  async confirm(telegramId: bigint, code: string): Promise<SubmittedTransfer> {
+  async confirm(
+    telegramId: bigint,
+    code: string,
+    hooks?: { afterOtpAccepted?: () => void | Promise<void> },
+  ): Promise<SubmittedTransfer> {
     const pendingTransfer = await this.prismaService.pendingTransfer.findFirst({
       where: { telegramId, status: TransferStatus.AWAITING_OTP },
       orderBy: { createdAt: 'desc' },
@@ -94,6 +98,8 @@ export class TransferService {
     if (claimedTransfer.count !== 1) {
       throw new NoPendingTransferError();
     }
+
+    await hooks?.afterOtpAccepted?.();
 
     try {
       const txHash = await this.walletService.sendUsdc(

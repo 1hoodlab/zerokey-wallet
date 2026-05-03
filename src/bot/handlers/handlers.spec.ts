@@ -37,6 +37,17 @@ describe('bot command handlers', () => {
     expect(ctx.reply).toHaveBeenCalledWith('Invalid Ethereum address.');
   });
 
+  it('handleSend wraps OTP in Telegram spoiler (HTML)', async () => {
+    const ctx = createContext(`/send 1 ${recipient}`);
+
+    await handleSend(ctx, createAccountService(), createWalletService(), createTransferService());
+
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringMatching(/OTP: <tg-spoiler>\d{6}<\/tg-spoiler>/),
+      { parse_mode: 'HTML' },
+    );
+  });
+
   it('handleSend rejects insufficient balance', async () => {
     const ctx = createContext(`/send 1 ${recipient}`);
     const walletService = createWalletService({ balance: 100n });

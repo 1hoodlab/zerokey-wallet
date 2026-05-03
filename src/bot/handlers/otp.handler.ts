@@ -23,7 +23,17 @@ export async function handleOtp(
   await accountService.getOrCreate(telegramId);
 
   try {
-    const submittedTransfer = await transferService.confirm(telegramId, getMessageText(ctx).trim());
+    const submittedTransfer = await transferService.confirm(
+      telegramId,
+      getMessageText(ctx).trim(),
+      {
+        afterOtpAccepted: async () => {
+          await ctx.reply(
+            'Submitting your transfer to the network. This may take a minute — hang tight.',
+          );
+        },
+      },
+    );
     await ctx.reply(`Transfer submitted: ${submittedTransfer.hash}`);
   } catch (error) {
     if (error instanceof OtpExpiredError) {
