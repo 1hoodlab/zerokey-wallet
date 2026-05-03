@@ -16,7 +16,7 @@ any server compromise can control all MVP-A smart accounts.
 | `AppModule`      | `src/app.module.ts` | Root composition                             |
 | `ConfigModule`   | `src/config/`       | `.env` loading and Joi validation            |
 | `DatabaseModule` | `src/database/`     | Prisma client lifecycle                      |
-| `WalletModule`   | `src/wallet/`       | Pimlico bundler and Base Sepolia USDC access |
+| `WalletModule`   | `src/wallet/`       | Pimlico bundler and BSC testnet USDC access |
 | `AccountModule`  | `src/account/`      | Deterministic user account persistence       |
 | `OtpModule`      | `src/otp/`          | OTP generation, hashing, expiry, retry math  |
 | `TransferModule` | `src/transfer/`     | OTP-gated transfer state machine             |
@@ -41,7 +41,7 @@ any server compromise can control all MVP-A smart accounts.
 ### `/balance`
 
 1. `AccountService.getOrCreate()` returns the address.
-2. `WalletService.getUsdcBalance()` reads Base Sepolia USDC `balanceOf`.
+2. `WalletService.getUsdcBalance()` reads BSC testnet USDC `balanceOf`.
 3. The handler formats six-decimal USDC and replies.
 
 ### `/send`

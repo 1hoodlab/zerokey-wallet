@@ -5,8 +5,8 @@ import { WalletService } from './wallet.service';
 describe('WalletService', () => {
   const appConfigService = {
     serverEoaPrivateKey: '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-    baseSepoliaRpcUrl: 'https://sepolia.base.org',
-    usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+    bscTestnetRpcUrl: 'https://data-seed-prebsc-1-s1.binance.org:8545',
+    usdcAddress: '0xaD88B079712CC38a8D33E072CB6434E652556441',
     pimlicoApiKey: 'test-pimlico-api-key',
   };
 
@@ -21,6 +21,11 @@ describe('WalletService', () => {
       ],
     }).compile();
 
-    expect(moduleRef.get(WalletService)).toBeInstanceOf(WalletService);
+    const walletService = moduleRef.get(WalletService);
+
+    expect(walletService).toBeInstanceOf(WalletService);
+    expect(walletService.formatUsdc(1_500_000n)).toBe('1.5');
+    expect(walletService.formatUsdc(12_345_678n)).toBe('12.345678');
+    expect(walletService.formatUsdc(1_234_567_890_123_456n)).toBe('1,234,567,890.123456');
   });
 });

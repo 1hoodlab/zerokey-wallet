@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Bot, type Context } from 'grammy';
 import { AccountService } from '../account/account.service';
@@ -23,9 +23,13 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   private readonly bot: Bot;
 
   constructor(
+    @Inject(AppConfigService)
     appConfigService: AppConfigService,
+    @Inject(AccountService)
     private readonly accountService: AccountService,
+    @Inject(WalletService)
     private readonly walletService: WalletService,
+    @Inject(TransferService)
     private readonly transferService: TransferService,
   ) {
     this.bot = new Bot(appConfigService.botToken);

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { Hex } from 'viem';
 import { PrismaService } from '../database/prisma.service';
@@ -12,7 +12,9 @@ export interface AccountResult {
 @Injectable()
 export class AccountService {
   constructor(
+    @Inject(PrismaService)
     private readonly prismaService: PrismaService,
+    @Inject(WalletService)
     private readonly walletService: WalletService,
   ) {}
 

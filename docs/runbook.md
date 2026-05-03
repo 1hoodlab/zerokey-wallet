@@ -22,7 +22,7 @@ before running CLI commands.
 ## Refill Smart Account Gas
 
 1. Use `/address` to get the user's smart account address.
-2. Send Base Sepolia ETH from a faucet to that address.
+2. Send BSC testnet BNB from a faucet to that address.
 3. Retry the transfer if failures were caused by an empty smart account.
 
 Never paste `SERVER_EOA_PRIVATE_KEY` into logs, tickets, or shared chats.
@@ -51,7 +51,7 @@ Look for these cases:
 - `FAILED`: broadcast or wallet SDK call failed.
 - `TIMEOUT`: receipt polling did not complete in the expected window.
 - `Wallet operation failed after retry`: RPC, bundler, or Pimlico path failed.
-- Smart account gas errors: refill the user's smart account with Base Sepolia ETH.
+- Smart account gas errors: refill the user's smart account with BSC testnet BNB.
 
 ## Wallet Integration Tests
 
@@ -61,12 +61,12 @@ are provided:
 ```bash
 TEST_SERVER_EOA_PRIVATE_KEY="0x..."
 TEST_PIMLICO_API_KEY="..."
-TEST_BASE_SEPOLIA_RPC_URL="https://sepolia.base.org"
-TEST_USDC_ADDRESS_BASE_SEPOLIA="0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+TEST_BSC_TESTNET_RPC_URL="https://data-seed-prebsc-1-s1.binance.org:8545"
+TEST_USDC_ADDRESS_BSC_TESTNET="0xaD88B079712CC38a8D33E072CB6434E652556441"
 pnpm test:integration
 ```
 
-The integration gate remains blocked until a funded Base Sepolia smart account and
+The integration gate remains blocked until a funded BSC testnet smart account and
 Pimlico API key are available.
 
 ## Manual Smoke Test
@@ -75,7 +75,7 @@ Pimlico API key are available.
 2. In a private Telegram chat, send `/start`; expect a valid `0x` address.
 3. Send `/start` again; expect the same address.
 4. Send `/address`; expect QR image and text address.
-5. Fund the address with Base Sepolia USDC and required ETH.
+5. Fund the address with BSC testnet USDC and required BNB for gas.
 6. Send `/balance`; expect current USDC amount.
 7. Send `/send 0.1 0x0000000000000000000000000000000000000001`; expect OTP challenge.
 8. Reply with the OTP; expect submitted transaction and later status message.

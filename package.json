@@ -7,9 +7,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "nest build",
+    "build": "nest build -p tsconfig.build.json",
     "start": "node dist/main.js",
-    "start:dev": "tsx watch src/main.ts",
+    "start:dev": "nest start --watch -p tsconfig.build.json --preserveWatchOutput",
     "lint": "eslint \"{src,test}/**/*.ts\" --no-error-on-unmatched-pattern",
     "format": "prettier --check \"**/*.{ts,md,json,yml,yaml,prisma}\"",
     "format:write": "prettier --write \"**/*.{ts,md,json,yml,yaml,prisma}\"",

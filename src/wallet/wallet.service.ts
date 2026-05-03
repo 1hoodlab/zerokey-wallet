@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
   createPublicClient,
   encodeFunctionData,
@@ -9,7 +9,7 @@ import {
   parseUnits,
   type Hex,
 } from 'viem';
-import { baseSepolia } from 'viem/chains';
+import { bscTestnet } from 'viem/chains';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { entryPoint07Address, type SmartAccount } from 'viem/account-abstraction';
 import { createSmartAccountClient } from 'permissionless';
@@ -19,19 +19,37 @@ import { AppConfigService } from '../config/app-config.service';
 import { WalletNetworkError } from '../common/exceptions';
 
 @Injectable()
-export class WalletService {
+export class WalletService implements OnModuleInit {
   private readonly logger = new Logger(WalletService.name);
   private readonly publicClient;
   private readonly serverAccount: PrivateKeyAccount;
   private readonly pimlicoRpcUrl: string;
+  private usdcDecimals = 6;
 
-  constructor(private readonly appConfigService: AppConfigService) {
+  constructor(
+    @Inject(AppConfigService)
+    private readonly appConfigService: AppConfigService,
+  ) {
     this.publicClient = createPublicClient({
-      chain: baseSepolia,
-      transport: http(this.appConfigService.baseSepoliaRpcUrl),
+      chain: bscTestnet,
+      transport: http(this.appConfigService.bscTestnetRpcUrl),
     });
     this.serverAccount = privateKeyToAccount(this.appConfigService.serverEoaPrivateKey);
-    this.pimlicoRpcUrl = `https://api.pimlico.io/v2/${baseSepolia.id}/rpc?apikey=${this.appConfigService.pimlicoApiKey}`;
+    this.pimlicoRpcUrl = `https://api.pimlico.io/v2/${bscTestnet.id}/rpc?apikey=${this.appConfigService.pimlicoApiKey}`;
+  }
+
+  async onModuleInit(): Promise<void> {
+    try {
+      const decimalsRead = await this.publicClient.readContract({
+        address: this.appConfigService.usdcAddress,
+        abi: erc20Abi,
+        functionName: 'decimals',
+      });
+      this.usdcDecimals = Number(decimalsRead);
+    } catch (error) {
+      this.logger.warn({ err: error }, 'Could not read token decimals from chain; using 6');
+      this.usdcDecimals = 6;
+    }
   }
 
   async deriveAddress(telegramId: bigint): Promise<Hex> {
@@ -49,11 +67,25 @@ export class WalletService {
   }
 
   formatUsdc(amountBaseUnits: bigint): string {
-    return formatUnits(amountBaseUnits, 6);
+    const formattedUnits = formatUnits(amountBaseUnits, this.usdcDecimals);
+    return WalletService.formatBalanceForDisplay(formattedUnits);
   }
 
   parseUsdc(amount: string): bigint {
-    return parseUnits(amount, 6);
+    return parseUnits(amount, this.usdcDecimals);
+  }
+
+  private static formatBalanceForDisplay(formattedUnits: string): string {
+    const trimmedInput = formattedUnits.trim();
+    const isNegative = trimmedInput.startsWith('-');
+    const unsigned = isNegative ? trimmedInput.slice(1) : trimmedInput;
+    const [wholeRaw, fractionRaw = ''] = unsigned.split('.');
+    const wholeNormalized = wholeRaw.replace(/^0+(?=\d)/, '') || '0';
+    const groupedWhole = BigInt(wholeNormalized).toLocaleString('en-US');
+    const trimmedFraction = fractionRaw.replace(/0+$/, '');
+    const combined =
+      trimmedFraction.length > 0 ? `${groupedWhole}.${trimmedFraction}` : groupedWhole;
+    return isNegative ? `-${combined}` : combined;
   }
 
   async sendUsdc(telegramId: bigint, recipientAddress: Hex, amountBaseUnits: bigint): Promise<Hex> {
@@ -94,7 +126,7 @@ export class WalletService {
   private async createSmartAccountClient(telegramId: bigint) {
     const account = await this.createSmartAccount(telegramId);
     const pimlicoClient = createPimlicoClient({
-      chain: baseSepolia,
+      chain: bscTestnet,
       transport: http(this.pimlicoRpcUrl),
       entryPoint: {
         address: entryPoint07Address,
@@ -104,7 +136,7 @@ export class WalletService {
 
     return createSmartAccountClient({
       account,
-      chain: baseSepolia,
+      chain: bscTestnet,
       client: this.publicClient,
       bundlerTransport: http(this.pimlicoRpcUrl),
       userOperation: {

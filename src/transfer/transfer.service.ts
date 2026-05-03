@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TransferStatus } from '@prisma/client';
 import type { Hex } from 'viem';
@@ -22,9 +22,13 @@ export class TransferService {
   private readonly logger = new Logger(TransferService.name);
 
   constructor(
+    @Inject(PrismaService)
     private readonly prismaService: PrismaService,
+    @Inject(OtpService)
     private readonly otpService: OtpService,
+    @Inject(WalletService)
     private readonly walletService: WalletService,
+    @Inject(EventEmitter2)
     private readonly eventEmitter: EventEmitter2,
   ) {}
 

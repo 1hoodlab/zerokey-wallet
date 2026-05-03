@@ -1,10 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { createHash, randomInt, timingSafeEqual } from 'crypto';
 import { AppConfigService } from '../config/app-config.service';
 
 @Injectable()
 export class OtpService {
-  constructor(private readonly appConfigService: AppConfigService) {}
+  constructor(
+    @Inject(AppConfigService)
+    private readonly appConfigService: AppConfigService,
+  ) {}
 
   generateCode(): string {
     return randomInt(0, 1_000_000).toString().padStart(6, '0');

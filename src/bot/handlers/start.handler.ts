@@ -16,7 +16,7 @@ export async function handleStart(
   await ctx.reply(
     [
       'Welcome to ZeroKey Wallet MVP-A.',
-      'This bot is custodial and testnet-only on Base Sepolia.',
+      'This bot is custodial and testnet-only on BSC testnet.',
       `Your USDC address: ${account.address}`,
       'Use /balance to check funds or /send <amount> <0x-address> to send USDC.',
     ].join('\n'),

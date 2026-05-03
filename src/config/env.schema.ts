@@ -9,8 +9,8 @@ export const envSchema = Joi.object({
     .pattern(/^0x[a-fA-F0-9]{64}$/)
     .required(),
   PIMLICO_API_KEY: Joi.string().min(1).required(),
-  BASE_SEPOLIA_RPC_URL: Joi.string().uri().required(),
-  USDC_ADDRESS_BASE_SEPOLIA: Joi.string()
+  BSC_TESTNET_RPC_URL: Joi.string().uri().required(),
+  USDC_ADDRESS_BSC_TESTNET: Joi.string()
     .pattern(/^0x[a-fA-F0-9]{40}$/)
     .required(),
   OTP_TTL_SECONDS: Joi.number().integer().positive().default(300),

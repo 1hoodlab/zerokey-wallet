@@ -5,9 +5,9 @@ import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.createApplicationContext(AppModule, {
-    bufferLogs: true,
-  });
+  const app = await NestFactory.createApplicationContext(AppModule);
+
+  logger.log('Application context initialized (Telegram bot should be polling).');
 
   process.on('SIGTERM', () => {
     void app.close();

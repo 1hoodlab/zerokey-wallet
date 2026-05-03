@@ -6,7 +6,7 @@ import { WalletService } from './wallet.service';
 const hasIntegrationCredentials =
   Boolean(process.env.TEST_SERVER_EOA_PRIVATE_KEY) &&
   Boolean(process.env.TEST_PIMLICO_API_KEY) &&
-  Boolean(process.env.TEST_BASE_SEPOLIA_RPC_URL);
+  Boolean(process.env.TEST_BSC_TESTNET_RPC_URL);
 
 const describeIntegration = hasIntegrationCredentials ? describe : describe.skip;
 
@@ -20,7 +20,7 @@ describeIntegration('@integration WalletService', () => {
     );
   });
 
-  it('reads a Base Sepolia USDC balance', async () => {
+  it('reads a BSC testnet USDC balance', async () => {
     const service = await createService();
     const address = await service.deriveAddress(987654321n);
 
@@ -36,15 +36,18 @@ async function createService(): Promise<WalletService> {
         provide: AppConfigService,
         useValue: {
           serverEoaPrivateKey: process.env.TEST_SERVER_EOA_PRIVATE_KEY as Hex,
-          baseSepoliaRpcUrl: process.env.TEST_BASE_SEPOLIA_RPC_URL ?? 'https://sepolia.base.org',
+          bscTestnetRpcUrl:
+            process.env.TEST_BSC_TESTNET_RPC_URL ??
+            'https://data-seed-prebsc-1-s1.binance.org:8545',
           usdcAddress:
-            (process.env.TEST_USDC_ADDRESS_BASE_SEPOLIA as Hex | undefined) ??
-            '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+            (process.env.TEST_USDC_ADDRESS_BSC_TESTNET as Hex | undefined) ??
+            '0xaD88B079712CC38a8D33E072CB6434E652556441',
           pimlicoApiKey: process.env.TEST_PIMLICO_API_KEY ?? 'missing',
         },
       },
     ],
   }).compile();
+  await moduleRef.init();
 
   return moduleRef.get(WalletService);
 }
