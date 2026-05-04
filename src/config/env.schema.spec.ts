@@ -8,6 +8,7 @@ describe('config', () => {
     BOT_TOKEN: '1234567:ABCDEF',
     SERVER_EOA_PRIVATE_KEY: '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     PIMLICO_API_KEY: 'test-pimlico-api-key',
+    POLL_USDC_ESCROW_ADDRESS: '0xd73d3e44a6184179cd9c09cb2e2647981b716568',
     OTP_TTL_SECONDS: 300,
     OTP_MAX_RETRIES: 3,
     LOG_LEVEL: 'info',

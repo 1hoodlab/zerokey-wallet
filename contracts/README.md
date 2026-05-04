@@ -32,6 +32,8 @@ pnpm run deploy:bsc-testnet
 
 Copy printed address into your app’s **`POLL_USDC_ESCROW_ADDRESS`** (or `Network` row). User stakes use normal **USDC `transfer(escrow, amount)`** to this contract.
 
+To **verify on BscScan testnet**, set **`ETHERSCAN_API_KEY`** (preferred) or **`BSCSCAN_API_KEY`**, **`VERIFY_CONTRACT_ADDRESS`**, and **`ESCROW_OWNER_ADDRESS`** in `.env`, then run `pnpm run verify:usdc:bsc-testnet`. Full steps mirror the Merkle escrow verify section later in this file.
+
 ## Payout integration (Nest app — follow-up)
 
 Replace “EOA signs `ERC20.transfer`” with **owner** calling:
@@ -61,6 +63,37 @@ pnpm run deploy:merkle:bsc-testnet
 ```
 
 Or from repo root: `pnpm contracts:deploy:merkle:bsc-testnet`
+
+### Verify on BscScan (testnet chain 97)
+
+Hardhat **must** use [Etherscan API v2](https://docs.etherscan.io/etherscan/v2-migration): set **`etherscan.apiKey` as one string** (already done in `hardhat.config.ts`). A **BscScan-only legacy key** combined with the old `{ bsc: '...', bscTestnet: '...' }` map forces deprecated v1 endpoints and fails with *“deprecated V1 endpoint”*.
+
+1. Create an API key at [Etherscan — API keys](https://etherscan.io/apis) (unified multichain account; works for BNB Smart Chain testnet as `chainId` **97**).
+
+2. In `contracts/.env` set:
+   - **`ETHERSCAN_API_KEY`** (preferred), or **`BSCSCAN_API_KEY`** as an alias to the same unified key  
+   - **`VERIFY_CONTRACT_ADDRESS`** — address printed after deploy  
+   - **`ESCROW_OWNER_ADDRESS`** — **exactly** the same owner you passed into the deploy script (otherwise verification fails)
+
+3. From `contracts/`:
+
+```bash
+pnpm run verify:usdc:bsc-testnet
+```
+
+or Merkle escrow:
+
+```bash
+pnpm run verify:merkle:bsc-testnet
+```
+
+From repo root: `pnpm contracts:verify:usdc:bsc-testnet` / `pnpm contracts:verify:merkle:bsc-testnet`.
+
+If the contract is already verified, Hardhat exits with “Already Verified”. For manual one-off CLI without scripts:
+
+```bash
+cd contracts && pnpm exec hardhat verify --network bscTestnet <ADDRESS> "<OWNER_0x...>"
+```
 
 ## Security notes
 

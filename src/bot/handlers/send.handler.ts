@@ -4,6 +4,7 @@ import type { AccountService } from '../../account/account.service';
 import type { TransferService } from '../../transfer/transfer.service';
 import type { WalletService } from '../../wallet/wallet.service';
 import { getMessageText, getTelegramId } from './context';
+import { replyToUserPreferPrivateDm } from './message-delivery';
 
 function escapeTelegramHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -70,12 +71,13 @@ export async function handleSend(
   );
   const recipientEscaped = escapeTelegramHtml(recipientAddress);
 
-  await ctx.reply(
+  await replyToUserPreferPrivateDm(
+    ctx,
     [
       `Confirm send of ${amountFormatted} USDC on ${account.network.displayName}.`,
       `Recipient: ${recipientEscaped}`,
       `OTP: <tg-spoiler>${escapeTelegramHtml(transfer.code)}</tg-spoiler>`,
-      'Reply with the 6-digit OTP within 5 minutes.',
+      'Reply with the 6-digit OTP within 5 minutes in this chat (never in a group).',
     ].join('\n'),
     { parse_mode: 'HTML' },
   );

@@ -23,6 +23,8 @@
     "contracts:test": "pnpm --filter @zerokey-wallet/contracts test",
     "contracts:deploy:bsc-testnet": "pnpm --filter @zerokey-wallet/contracts deploy:bsc-testnet",
     "contracts:deploy:merkle:bsc-testnet": "pnpm --filter @zerokey-wallet/contracts deploy:merkle:bsc-testnet",
+    "contracts:verify:usdc:bsc-testnet": "pnpm --filter @zerokey-wallet/contracts verify:usdc:bsc-testnet",
+    "contracts:verify:merkle:bsc-testnet": "pnpm --filter @zerokey-wallet/contracts verify:merkle:bsc-testnet",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -38,6 +40,7 @@
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.19",
     "@nestjs/event-emitter": "^3.1.0",
+    "@openzeppelin/merkle-tree": "^1.0.8",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "class-transformer": "^0.5.1",

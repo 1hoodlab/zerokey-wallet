@@ -116,6 +116,21 @@ export class WalletService {
     });
   }
 
+  async executeContractCall(
+    telegramId: bigint,
+    network: Network,
+    call: { contractAddress: Hex; encodedCallData: Hex; valueWei?: bigint },
+  ): Promise<Hex> {
+    return this.withSingleRetry(async () => {
+      const smartAccountClient = await this.createSmartAccountClient(telegramId, network);
+      return smartAccountClient.sendTransaction({
+        to: getAddress(call.contractAddress),
+        value: call.valueWei ?? 0n,
+        data: call.encodedCallData,
+      });
+    });
+  }
+
   async waitForUsdcTransfer(network: Network, hash: Hex): Promise<void> {
     const clients = this.getOrCreateNetworkClients(network);
     await clients.publicClient.waitForTransactionReceipt({ hash });

@@ -5,6 +5,7 @@ export const TRANSFER_FAILED_EVENT = 'transfer.failed';
 
 export interface TransferStatusEvent {
   chatId: bigint;
+  transferId: string;
   hash: Hex;
   reason?: string;
 }

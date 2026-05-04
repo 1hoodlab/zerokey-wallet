@@ -9,6 +9,8 @@ import {
 } from '../common/events';
 import { AppConfigService } from '../config/app-config.service';
 import { NetworkRegistryService } from '../network/network-registry.service';
+import { PollService } from '../poll/poll.service';
+import { VoteIntentService } from '../poll/vote-intent.service';
 import { TransferService } from '../transfer/transfer.service';
 import { WalletService } from '../wallet/wallet.service';
 import { handleAddress } from './handlers/address.handler';
@@ -19,6 +21,16 @@ import { handleOtp } from './handlers/otp.handler';
 import { handleSend } from './handlers/send.handler';
 import { handleStart } from './handlers/start.handler';
 import { handleSwitch } from './handlers/switch.handler';
+import {
+  handleClaimPollRewardCommand,
+  handleClosePollCommand,
+  handleCreatePoll,
+  handlePollInfoQuery,
+  handleResolvePollCommand,
+  handlePollNativeVoteAnswer,
+  handleVotePollCommand,
+  handleVotePollDraftYesAcknowledgement,
+} from './handlers/poll.handler';
 
 @Injectable()
 export class BotService implements OnModuleInit, OnModuleDestroy {
@@ -36,12 +48,15 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     private readonly transferService: TransferService,
     @Inject(NetworkRegistryService)
     private readonly networkRegistryService: NetworkRegistryService,
+    @Inject(PollService)
+    private readonly pollService: PollService,
+    @Inject(VoteIntentService)
+    private readonly voteIntentService: VoteIntentService,
   ) {
     this.bot = new Bot(appConfigService.botToken);
   }
 
   async onModuleInit(): Promise<void> {
-    this.registerMiddleware();
     this.registerHandlers();
     await this.bot.start();
   }
@@ -63,17 +78,6 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  private registerMiddleware(): void {
-    this.bot.use(async (ctx, next) => {
-      if (ctx.chat && ctx.chat.type !== 'private') {
-        await ctx.reply('Please use this bot in a private chat.');
-        return;
-      }
-
-      await next();
-    });
-  }
-
   private registerHandlers(): void {
     this.bot.command('start', (ctx) => handleStart(ctx, this.accountService));
     this.bot.command('address', (ctx) => handleAddress(ctx, this.accountService));
@@ -88,6 +92,39 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     );
     this.bot.command('networks', (ctx) =>
       handleNetworks(ctx, this.accountService, this.networkRegistryService),
+    );
+    this.bot.command('create_poll', (ctx) =>
+      handleCreatePoll(ctx, this.accountService, this.pollService),
+    );
+    this.bot.on('poll_answer', (ctx) =>
+      handlePollNativeVoteAnswer(
+        ctx,
+        this.accountService,
+        this.walletService,
+        this.voteIntentService,
+        this.pollService,
+      ),
+    );
+    this.bot.command('poll', (ctx) => handlePollInfoQuery(ctx, this.pollService));
+    this.bot.command('vote_poll', (ctx) =>
+      handleVotePollCommand(ctx, this.accountService, this.walletService, this.voteIntentService),
+    );
+    this.bot.hears(/^YES$/i, (ctx) =>
+      handleVotePollDraftYesAcknowledgement(
+        ctx,
+        this.accountService,
+        this.voteIntentService,
+        this.walletService,
+      ),
+    );
+    this.bot.command('close_poll', (ctx) =>
+      handleClosePollCommand(ctx, this.pollService),
+    );
+    this.bot.command('resolve_poll', (ctx) =>
+      handleResolvePollCommand(ctx, this.pollService),
+    );
+    this.bot.command('claim_poll', (ctx) =>
+      handleClaimPollRewardCommand(ctx, this.pollService),
     );
     this.bot.command('help', handleHelp);
     this.bot.hears(/^\d{6}$/, (ctx: Context) =>

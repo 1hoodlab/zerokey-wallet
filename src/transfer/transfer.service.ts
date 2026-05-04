@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Network } from '@prisma/client';
 import { TransferStatus } from '@prisma/client';
@@ -8,6 +8,7 @@ import { TRANSFER_CONFIRMED_EVENT, TRANSFER_FAILED_EVENT } from '../common/event
 import { PrismaService } from '../database/prisma.service';
 import { NetworkRegistryService } from '../network/network-registry.service';
 import { OtpService } from '../otp/otp.service';
+import { PollTransferStakeSyncService } from '../poll/poll-transfer-stake-sync.service';
 import { WalletService } from '../wallet/wallet.service';
 
 export interface InitiatedTransfer {
@@ -34,6 +35,8 @@ export class TransferService {
     private readonly networkRegistryService: NetworkRegistryService,
     @Inject(EventEmitter2)
     private readonly eventEmitter: EventEmitter2,
+    @Inject(forwardRef(() => PollTransferStakeSyncService))
+    private readonly pollTransferStakeSyncService: PollTransferStakeSyncService,
   ) {}
 
   async initiate(
@@ -157,6 +160,7 @@ export class TransferService {
       });
       this.eventEmitter.emit(TRANSFER_FAILED_EVENT, {
         chatId: transfer.telegramId,
+        transferId: transfer.id,
         hash,
         reason: error instanceof Error ? error.message : 'Receipt polling failed',
       });
@@ -168,8 +172,18 @@ export class TransferService {
       data: { status: TransferStatus.CONFIRMED },
     });
 
+    try {
+      await this.pollTransferStakeSyncService.applyConfirmedStakeForTransferId(transferId);
+    } catch (reconcileErrorUnknown: unknown) {
+      this.logger.error(
+        { err: reconcileErrorUnknown, transferId },
+        'PollVoteIntent reconcile after CONFIRMED failed',
+      );
+    }
+
     this.eventEmitter.emit(TRANSFER_CONFIRMED_EVENT, {
       chatId: transfer.telegramId,
+      transferId: transfer.id,
       hash,
     });
   }
@@ -182,6 +196,7 @@ export class TransferService {
 
     this.eventEmitter.emit(TRANSFER_FAILED_EVENT, {
       chatId: transfer.telegramId,
+      transferId: transfer.id,
       hash,
       reason,
     });

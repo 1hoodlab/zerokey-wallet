@@ -4,6 +4,7 @@ import type { Network } from '@prisma/client';
 import { TransferStatus } from '@prisma/client';
 import type { Hex } from 'viem';
 import { NoPendingTransferError, OtpExpiredError, OtpInvalidError } from '../common/exceptions';
+import { PollTransferStakeSyncService } from '../poll/poll-transfer-stake-sync.service';
 import { PrismaService } from '../database/prisma.service';
 import { NetworkRegistryService } from '../network/network-registry.service';
 import { OtpService } from '../otp/otp.service';
@@ -193,11 +194,15 @@ describe('TransferService', () => {
     const prismaService = createMockPrisma();
     const walletService = createMockWallet();
     const eventEmitter = createMockEventEmitter();
+    const pollStakeSync = {
+      applyConfirmedStakeForTransferId: jest.fn().mockResolvedValue(undefined),
+    };
     const service = await createService(
       prismaService,
       createMockOtp(),
       walletService,
       eventEmitter,
+      pollStakeSync,
     );
 
     await service.pollReceipt('transfer-1', txHash);
@@ -207,8 +212,10 @@ describe('TransferService', () => {
       where: { id: 'transfer-1' },
       data: { status: TransferStatus.CONFIRMED },
     });
+    expect(pollStakeSync.applyConfirmedStakeForTransferId).toHaveBeenCalledWith('transfer-1');
     expect(eventEmitter.emit).toHaveBeenCalledWith('transfer.confirmed', {
       chatId: telegramId,
+      transferId: 'transfer-1',
       hash: txHash,
     });
   });
@@ -268,6 +275,9 @@ async function createService(
   otpService: MockOtpService,
   walletService: MockWalletService = createMockWallet(),
   eventEmitter: MockEventEmitter = createMockEventEmitter(),
+  pollStakeSync: Pick<PollTransferStakeSyncService, 'applyConfirmedStakeForTransferId'> = {
+    applyConfirmedStakeForTransferId: jest.fn().mockResolvedValue(undefined),
+  },
 ): Promise<TransferService> {
   const moduleRef = await Test.createTestingModule({
     providers: [
@@ -282,6 +292,10 @@ async function createService(
         },
       },
       { provide: EventEmitter2, useValue: eventEmitter },
+      {
+        provide: PollTransferStakeSyncService,
+        useValue: pollStakeSync,
+      },
     ],
   }).compile();
 

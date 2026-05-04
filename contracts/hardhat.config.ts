@@ -5,6 +5,10 @@ import type { HardhatUserConfig } from "hardhat/config";
 dotenv.config();
 
 const deployerPrivateKey = process.env.DEPLOYER_PRIVATE_KEY ?? "";
+// Etherscan API v2: must be a single string key (not per-network map) or Hardhat falls back to deprecated explorer v1 URLs.
+// Use a key from https://etherscan.io/apis — it supports BNB Smart Chain testnet (chainId 97) via the unified v2 API.
+const explorerApiKey =
+  process.env.ETHERSCAN_API_KEY?.trim() || process.env.BSCSCAN_API_KEY?.trim() || "";
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -27,6 +31,9 @@ const config: HardhatUserConfig = {
         : {}),
       chainId: 97,
     },
+  },
+  etherscan: {
+    apiKey: explorerApiKey,
   },
 };
 

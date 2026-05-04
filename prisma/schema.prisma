@@ -19,6 +19,7 @@ model Network {
   users            User[]
   userAddresses    UserNetworkAddress[]
   pendingTransfers PendingTransfer[]
+  polls            Poll[]
 
   @@map("networks")
 }
@@ -62,11 +63,75 @@ model PendingTransfer {
   createdAt   DateTime       @default(now()) @map("created_at")
   confirmedAt DateTime?      @map("confirmed_at")
 
-  user    User    @relation(fields: [telegramId], references: [telegramId])
-  network Network @relation(fields: [networkId], references: [id])
+  user             User         @relation(fields: [telegramId], references: [telegramId])
+  network          Network      @relation(fields: [networkId], references: [id])
+  linkedVoteIntent VoteIntent?
 
   @@index([telegramId, status])
   @@map("pending_transfers")
+}
+
+model Poll {
+  id                  String     @id @default(uuid())
+  creatorTelegramId   BigInt     @map("creator_telegram_id")
+  networkId           String     @map("network_id")
+  title               String
+  sideALabel          String     @map("side_a_label")
+  sideBLabel          String     @map("side_b_label")
+  state               PollState
+  closedAt            DateTime?  @map("closed_at")
+  resolvedAt          DateTime?  @map("resolved_at")
+  winningOutcome      PollSide?  @map("winning_outcome")
+  payoutIdHex       String?    @map("payout_id_hex")
+  merkleRootHex     String?    @map("merkle_root_hex")
+  payoutCommittedAt DateTime?  @map("payout_committed_at")
+  payoutCommitTxHash  String?    @map("payout_commit_tx_hash")
+  /// Telegram Bot API poll id from sendPoll (native non-anonymous poll UI).
+  telegramPollId       String?   @unique @map("telegram_poll_id")
+  createdAt           DateTime   @default(now()) @map("created_at")
+
+  network         Network              @relation(fields: [networkId], references: [id])
+  voteIntents     VoteIntent[]
+  winnerPayouts   PollWinnerPayout[]
+
+  @@index([creatorTelegramId])
+  @@map("polls")
+}
+
+model VoteIntent {
+  id                 String             @id @default(uuid())
+  pollId             String             @map("poll_id")
+  telegramId         BigInt             @map("telegram_id")
+  outcome            PollSide
+  amountBaseUnits    String             @map("amount_base_units")
+  status             VoteIntentStatus
+  pendingTransferId  String?            @unique @map("pending_transfer_id")
+  expiresAt          DateTime           @map("expires_at")
+  stakeConfirmedAt   DateTime?          @map("stake_confirmed_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+
+  poll             Poll              @relation(fields: [pollId], references: [id])
+  pendingTransfer  PendingTransfer?  @relation(fields: [pendingTransferId], references: [id])
+
+  @@index([pollId, status])
+  @@index([telegramId])
+  @@map("vote_intents")
+}
+
+model PollWinnerPayout {
+  id                     String            @id @default(uuid())
+  pollId                 String            @map("poll_id")
+  telegramId             BigInt            @map("telegram_id")
+  amountOwedBaseUnits    String            @map("amount_owed_base_units")
+  merkleProofTokens      Json              @map("merkle_proof_tokens")
+  status                 PollPayoutStatus
+  outboundTxHash        String?           @map("outbound_tx_hash")
+  createdAt              DateTime          @default(now()) @map("created_at")
+
+  poll Poll @relation(fields: [pollId], references: [id])
+
+  @@unique([pollId, telegramId])
+  @@map("poll_winner_payouts")
 }
 
 enum TransferStatus {
@@ -78,4 +143,32 @@ enum TransferStatus {
   FAILED
   EXPIRED
   CANCELLED
+}
+
+enum PollState {
+  OPEN
+  CLOSED
+  RESOLVED
+}
+
+enum PollSide {
+  SIDE_A
+  SIDE_B
+}
+
+enum VoteIntentStatus {
+  DRAFT
+  AWAITING_ESCROW_PAYMENT
+  STAKE_CONFIRMED
+  EXPIRED
+  FAILED
+  CANCELLED
+  BLOCKED_CLOSED
+}
+
+enum PollPayoutStatus {
+  UNCLAIMED
+  SUBMITTED
+  PAID
+  FAILED
 }

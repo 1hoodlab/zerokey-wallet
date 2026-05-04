@@ -20,6 +20,13 @@ export async function handleOtp(
     return;
   }
 
+  if (ctx.chat?.type !== 'private') {
+    await ctx.reply(
+      'For security send your OTP only in a private chat with this bot (not in groups).',
+    );
+    return;
+  }
+
   await accountService.getCurrentAccount(telegramId);
 
   try {

@@ -7,20 +7,22 @@ import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { NetworkModule } from './network/network.module';
 import { OtpModule } from './otp/otp.module';
+import { PollModule } from './poll/poll.module';
 import { TransferModule } from './transfer/transfer.module';
 import { WalletModule } from './wallet/wallet.module';
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot(),
     AccountModule,
     BotModule,
     ConfigModule,
     DatabaseModule,
     NetworkModule,
     OtpModule,
+    PollModule,
     TransferModule,
     WalletModule,
-    EventEmitterModule.forRoot(),
     LoggerModule.forRoot({
       pinoHttp: {
         level: process.env.LOG_LEVEL ?? 'info',

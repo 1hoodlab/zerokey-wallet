@@ -5,6 +5,8 @@
     "compile": "hardhat compile",
     "deploy:bsc-testnet": "hardhat run scripts/deploy-usdc-escrow.ts --network bscTestnet",
     "deploy:merkle:bsc-testnet": "hardhat run scripts/deploy-merkle-payout-escrow.ts --network bscTestnet",
+    "verify:usdc:bsc-testnet": "hardhat run scripts/verify-usdc-escrow.ts --network bscTestnet",
+    "verify:merkle:bsc-testnet": "hardhat run scripts/verify-merkle-payout-escrow.ts --network bscTestnet",
     "clean": "hardhat clean",
     "test": "hardhat test"
   },
