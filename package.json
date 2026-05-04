@@ -22,6 +22,7 @@
     "contracts:compile": "pnpm --filter @zerokey-wallet/contracts compile",
     "contracts:test": "pnpm --filter @zerokey-wallet/contracts test",
     "contracts:deploy:bsc-testnet": "pnpm --filter @zerokey-wallet/contracts deploy:bsc-testnet",
+    "contracts:deploy:merkle:bsc-testnet": "pnpm --filter @zerokey-wallet/contracts deploy:merkle:bsc-testnet",
     "prepare": "husky"
   },
   "lint-staged": {

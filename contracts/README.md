@@ -40,6 +40,28 @@ Replace “EOA signs `ERC20.transfer`” with **owner** calling:
 
 Use the same **USDC contract** your `Network.usdcAddress` points to. `memo` can be `keccak256(pollId || payoutId)` for off-chain audit trails.
 
+---
+
+## MerklePayoutEscrow (Merkle claim payouts)
+
+Specified in [`docs/superpowers/specs/2026-05-04-merkle-claim-escrow-supplement.md`](../docs/superpowers/specs/2026-05-04-merkle-claim-escrow-supplement.md).
+
+- **`commitPayoutRoot(payoutId, token, merkleRoot)`** — `onlyOwner`, **frozen** after first commit for that `payoutId`.
+- **`claim(payoutId, token, amount, proof[])`** — `msg.sender` must match `recipient` in the leaf / proof.
+- Leaf hash (mirror when building proofs in JS):
+
+  `leaf = keccak256(bytes.concat(keccak256(abi.encode(payoutId, recipient, amount, address(token)))))`
+
+- Use **`@openzeppelin/merkle-tree`** **`StandardMerkleTree`** with leaf encoding **`['bytes32','address','uint256','address']`** in that order — see `contracts/test/MerklePayoutEscrow.test.ts`.
+
+### Deploy Merkle escrow (BSC testnet)
+
+```bash
+pnpm run deploy:merkle:bsc-testnet
+```
+
+Or from repo root: `pnpm contracts:deploy:merkle:bsc-testnet`
+
 ## Security notes
 
 - **Owner compromise = fund drain** (same class of risk as any upgradable-less custodial pattern). Mitigate with **multisig owner**, **hardware signers**, and **least-privilege** keys on servers.
