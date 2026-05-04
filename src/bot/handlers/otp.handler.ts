@@ -11,7 +11,7 @@ import { getMessageText, getTelegramId } from './context';
 
 export async function handleOtp(
   ctx: Context,
-  accountService: Pick<AccountService, 'getOrCreate'>,
+  accountService: Pick<AccountService, 'getCurrentAccount'>,
   transferService: Pick<TransferService, 'confirm'>,
 ): Promise<void> {
   const telegramId = getTelegramId(ctx);
@@ -20,7 +20,7 @@ export async function handleOtp(
     return;
   }
 
-  await accountService.getOrCreate(telegramId);
+  await accountService.getCurrentAccount(telegramId);
 
   try {
     const submittedTransfer = await transferService.confirm(

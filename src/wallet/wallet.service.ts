@@ -1,4 +1,5 @@
-import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { Network } from '@prisma/client';
 import {
   createPublicClient,
   encodeFunctionData,
@@ -7,72 +8,174 @@ import {
   getAddress,
   http,
   parseUnits,
+  type Chain,
   type Hex,
+  type PublicClient,
 } from 'viem';
-import { bscTestnet } from 'viem/chains';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { entryPoint07Address, type SmartAccount } from 'viem/account-abstraction';
 import { createSmartAccountClient } from 'permissionless';
 import { SafeSmartAccount } from 'permissionless/accounts/safe';
 import { createPimlicoClient } from 'permissionless/clients/pimlico';
-import { AppConfigService } from '../config/app-config.service';
 import { WalletNetworkError } from '../common/exceptions';
+import { AppConfigService } from '../config/app-config.service';
+import { NetworkRegistryService } from '../network/network-registry.service';
+
+interface NetworkClients {
+  chain: Chain;
+  pimlicoRpcUrl: string;
+  publicClient: PublicClient;
+}
 
 @Injectable()
-export class WalletService implements OnModuleInit {
+export class WalletService {
   private readonly logger = new Logger(WalletService.name);
-  private readonly publicClient;
+  private readonly networkClientCache = new Map<number, NetworkClients>();
   private readonly serverAccount: PrivateKeyAccount;
-  private readonly pimlicoRpcUrl: string;
-  private usdcDecimals = 6;
+  private readonly usdcDecimalsCache = new Map<string, number>();
 
   constructor(
     @Inject(AppConfigService)
     private readonly appConfigService: AppConfigService,
+    @Inject(NetworkRegistryService)
+    private readonly networkRegistryService: NetworkRegistryService,
   ) {
-    this.publicClient = createPublicClient({
-      chain: bscTestnet,
-      transport: http(this.appConfigService.bscTestnetRpcUrl),
-    });
     this.serverAccount = privateKeyToAccount(this.appConfigService.serverEoaPrivateKey);
-    this.pimlicoRpcUrl = `https://api.pimlico.io/v2/${bscTestnet.id}/rpc?apikey=${this.appConfigService.pimlicoApiKey}`;
   }
 
-  async onModuleInit(): Promise<void> {
-    try {
-      const decimalsRead = await this.publicClient.readContract({
-        address: this.appConfigService.usdcAddress,
-        abi: erc20Abi,
-        functionName: 'decimals',
-      });
-      this.usdcDecimals = Number(decimalsRead);
-    } catch (error) {
-      this.logger.warn({ err: error }, 'Could not read token decimals from chain; using 6');
-      this.usdcDecimals = 6;
-    }
-  }
-
-  async deriveAddress(telegramId: bigint): Promise<Hex> {
-    const account = await this.createSmartAccount(telegramId);
+  async deriveAddress(telegramId: bigint, network: Network): Promise<Hex> {
+    const account = await this.createSmartAccount(telegramId, network);
     return getAddress(account.address);
   }
 
-  async getUsdcBalance(address: Hex): Promise<bigint> {
-    return this.publicClient.readContract({
-      address: this.appConfigService.usdcAddress,
+  async getUsdcBalance(address: Hex, network: Network): Promise<bigint> {
+    const clients = this.getOrCreateNetworkClients(network);
+    return clients.publicClient.readContract({
+      address: getAddress(network.usdcAddress),
       abi: erc20Abi,
       functionName: 'balanceOf',
       args: [address],
     });
   }
 
-  formatUsdc(amountBaseUnits: bigint): string {
-    const formattedUnits = formatUnits(amountBaseUnits, this.usdcDecimals);
+  async formatUsdc(amountBaseUnits: bigint, network: Network): Promise<string> {
+    const decimals = await this.getUsdcDecimals(network);
+    const formattedUnits = formatUnits(amountBaseUnits, decimals);
     return WalletService.formatBalanceForDisplay(formattedUnits);
   }
 
-  parseUsdc(amount: string): bigint {
-    return parseUnits(amount, this.usdcDecimals);
+  async parseUsdc(amount: string, network: Network): Promise<bigint> {
+    const decimals = await this.getUsdcDecimals(network);
+    return parseUnits(amount, decimals);
+  }
+
+  async getUsdcDecimals(network: Network): Promise<number> {
+    const cachedDecimals = this.usdcDecimalsCache.get(network.id);
+    if (cachedDecimals !== undefined) {
+      return cachedDecimals;
+    }
+
+    try {
+      const clients = this.getOrCreateNetworkClients(network);
+      const decimalsRead = await clients.publicClient.readContract({
+        address: getAddress(network.usdcAddress),
+        abi: erc20Abi,
+        functionName: 'decimals',
+      });
+      const numericDecimals = Number(decimalsRead);
+      this.usdcDecimalsCache.set(network.id, numericDecimals);
+      return numericDecimals;
+    } catch (error) {
+      this.logger.warn(
+        { err: error, networkSlug: network.slug },
+        'Could not read token decimals from chain; using 6',
+      );
+      this.usdcDecimalsCache.set(network.id, 6);
+      return 6;
+    }
+  }
+
+  async sendUsdc(
+    telegramId: bigint,
+    network: Network,
+    recipientAddress: Hex,
+    amountBaseUnits: bigint,
+  ): Promise<Hex> {
+    return this.withSingleRetry(async () => {
+      const smartAccountClient = await this.createSmartAccountClient(telegramId, network);
+
+      return smartAccountClient.sendTransaction({
+        to: getAddress(network.usdcAddress),
+        value: 0n,
+        data: encodeFunctionData({
+          abi: erc20Abi,
+          functionName: 'transfer',
+          args: [recipientAddress, amountBaseUnits],
+        }),
+      });
+    });
+  }
+
+  async waitForUsdcTransfer(network: Network, hash: Hex): Promise<void> {
+    const clients = this.getOrCreateNetworkClients(network);
+    await clients.publicClient.waitForTransactionReceipt({ hash });
+  }
+
+  private getOrCreateNetworkClients(network: Network): NetworkClients {
+    const cachedClients = this.networkClientCache.get(network.chainId);
+    if (cachedClients) {
+      return cachedClients;
+    }
+
+    const chain = this.networkRegistryService.toViemChain(network);
+    const publicClient = createPublicClient({
+      chain,
+      transport: http(network.rpcUrl),
+    });
+    const pimlicoRpcUrl = `https://api.pimlico.io/v2/${network.chainId}/rpc?apikey=${this.appConfigService.pimlicoApiKey}`;
+    const clients: NetworkClients = { chain, pimlicoRpcUrl, publicClient };
+    this.networkClientCache.set(network.chainId, clients);
+    return clients;
+  }
+
+  private async createSmartAccount(telegramId: bigint, network: Network): Promise<SmartAccount> {
+    const clients = this.getOrCreateNetworkClients(network);
+    return SafeSmartAccount.toSafeSmartAccount({
+      client: clients.publicClient,
+      owners: [this.serverAccount],
+      threshold: 1n,
+      version: '1.4.1',
+      entryPoint: {
+        address: entryPoint07Address,
+        version: '0.7',
+      },
+      saltNonce: telegramId,
+    });
+  }
+
+  private async createSmartAccountClient(telegramId: bigint, network: Network) {
+    const clients = this.getOrCreateNetworkClients(network);
+    const account = await this.createSmartAccount(telegramId, network);
+    const pimlicoClient = createPimlicoClient({
+      chain: clients.chain,
+      transport: http(clients.pimlicoRpcUrl),
+      entryPoint: {
+        address: entryPoint07Address,
+        version: '0.7',
+      },
+    });
+
+    return createSmartAccountClient({
+      account,
+      chain: clients.chain,
+      client: clients.publicClient,
+      bundlerTransport: http(clients.pimlicoRpcUrl),
+      userOperation: {
+        estimateFeesPerGas: async () => {
+          return (await pimlicoClient.getUserOperationGasPrice()).fast;
+        },
+      },
+    });
   }
 
   private static formatBalanceForDisplay(formattedUnits: string): string {
@@ -86,65 +189,6 @@ export class WalletService implements OnModuleInit {
     const combined =
       trimmedFraction.length > 0 ? `${groupedWhole}.${trimmedFraction}` : groupedWhole;
     return isNegative ? `-${combined}` : combined;
-  }
-
-  async sendUsdc(telegramId: bigint, recipientAddress: Hex, amountBaseUnits: bigint): Promise<Hex> {
-    return this.withSingleRetry(async () => {
-      const smartAccountClient = await this.createSmartAccountClient(telegramId);
-
-      return smartAccountClient.sendTransaction({
-        to: this.appConfigService.usdcAddress,
-        value: 0n,
-        data: encodeFunctionData({
-          abi: erc20Abi,
-          functionName: 'transfer',
-          args: [recipientAddress, amountBaseUnits],
-        }),
-      });
-    });
-  }
-
-  async waitForUsdcTransfer(telegramId: bigint, hash: Hex): Promise<void> {
-    await this.createSmartAccount(telegramId);
-    await this.publicClient.waitForTransactionReceipt({ hash });
-  }
-
-  private async createSmartAccount(telegramId: bigint): Promise<SmartAccount> {
-    return SafeSmartAccount.toSafeSmartAccount({
-      client: this.publicClient,
-      owners: [this.serverAccount],
-      threshold: 1n,
-      version: '1.4.1',
-      entryPoint: {
-        address: entryPoint07Address,
-        version: '0.7',
-      },
-      saltNonce: telegramId,
-    });
-  }
-
-  private async createSmartAccountClient(telegramId: bigint) {
-    const account = await this.createSmartAccount(telegramId);
-    const pimlicoClient = createPimlicoClient({
-      chain: bscTestnet,
-      transport: http(this.pimlicoRpcUrl),
-      entryPoint: {
-        address: entryPoint07Address,
-        version: '0.7',
-      },
-    });
-
-    return createSmartAccountClient({
-      account,
-      chain: bscTestnet,
-      client: this.publicClient,
-      bundlerTransport: http(this.pimlicoRpcUrl),
-      userOperation: {
-        estimateFeesPerGas: async () => {
-          return (await pimlicoClient.getUserOperationGasPrice()).fast;
-        },
-      },
-    });
   }
 
   private async withSingleRetry<T>(operation: () => Promise<T>): Promise<T> {

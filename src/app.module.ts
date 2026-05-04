@@ -5,6 +5,7 @@ import { AccountModule } from './account/account.module';
 import { BotModule } from './bot/bot.module';
 import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
+import { NetworkModule } from './network/network.module';
 import { OtpModule } from './otp/otp.module';
 import { TransferModule } from './transfer/transfer.module';
 import { WalletModule } from './wallet/wallet.module';
@@ -15,6 +16,7 @@ import { WalletModule } from './wallet/wallet.module';
     BotModule,
     ConfigModule,
     DatabaseModule,
+    NetworkModule,
     OtpModule,
     TransferModule,
     WalletModule,

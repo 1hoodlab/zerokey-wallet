@@ -11,18 +11,20 @@ pnpm install
 cp .env.example .env
 docker compose up -d postgres
 pnpm prisma migrate dev --name init
+pnpm prisma db seed
 pnpm start:dev
 ```
 
-Before starting the bot, edit `.env` with a Telegram bot token, a funded BSC
-testnet server EOA private key, and a Pimlico API key.
+Before starting the bot, edit `.env` with a Telegram bot token, a funded server EOA private key for signing Safe AA ops, and a Pimlico API key. Supported chains and token contracts come from the `networks` table via `pnpm prisma db seed`.
 
 ## Commands
 
-- `/start` creates or shows your testnet wallet address.
-- `/address` returns your address as text and QR code.
-- `/balance` shows your BSC testnet USDC balance.
-- `/send <amount> <0x-address>` starts an OTP-confirmed USDC transfer.
+- `/start` creates or shows your wallet address on the default network (`bsc_testnet`).
+- `/address` returns your address as text and QR code for your **current** network.
+- `/balance` shows USDC balance on your current network.
+- `/send <amount> <0x-address>` starts an OTP-confirmed USDC transfer on your current network.
+- `/networks` lists enabled networks and marks your current selection.
+- `/switch <slug>` changes your active network (addresses may differ per chain).
 - `/help` lists supported commands.
 
 ## Security Disclosure

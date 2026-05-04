@@ -8,14 +8,17 @@ import {
   type TransferStatusEvent,
 } from '../common/events';
 import { AppConfigService } from '../config/app-config.service';
+import { NetworkRegistryService } from '../network/network-registry.service';
 import { TransferService } from '../transfer/transfer.service';
 import { WalletService } from '../wallet/wallet.service';
 import { handleAddress } from './handlers/address.handler';
 import { handleBalance } from './handlers/balance.handler';
 import { handleHelp } from './handlers/help.handler';
+import { handleNetworks } from './handlers/networks.handler';
 import { handleOtp } from './handlers/otp.handler';
 import { handleSend } from './handlers/send.handler';
 import { handleStart } from './handlers/start.handler';
+import { handleSwitch } from './handlers/switch.handler';
 
 @Injectable()
 export class BotService implements OnModuleInit, OnModuleDestroy {
@@ -31,6 +34,8 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     private readonly walletService: WalletService,
     @Inject(TransferService)
     private readonly transferService: TransferService,
+    @Inject(NetworkRegistryService)
+    private readonly networkRegistryService: NetworkRegistryService,
   ) {
     this.bot = new Bot(appConfigService.botToken);
   }
@@ -77,6 +82,12 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     );
     this.bot.command('send', (ctx) =>
       handleSend(ctx, this.accountService, this.walletService, this.transferService),
+    );
+    this.bot.command('switch', (ctx) =>
+      handleSwitch(ctx, this.accountService, this.networkRegistryService),
+    );
+    this.bot.command('networks', (ctx) =>
+      handleNetworks(ctx, this.accountService, this.networkRegistryService),
     );
     this.bot.command('help', handleHelp);
     this.bot.hears(/^\d{6}$/, (ctx: Context) =>

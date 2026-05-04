@@ -5,7 +5,7 @@ import { getTelegramId } from './context';
 
 export async function handleBalance(
   ctx: Context,
-  accountService: Pick<AccountService, 'getOrCreate'>,
+  accountService: Pick<AccountService, 'getCurrentAccount'>,
   walletService: Pick<WalletService, 'getUsdcBalance' | 'formatUsdc'>,
 ): Promise<void> {
   const telegramId = getTelegramId(ctx);
@@ -14,7 +14,8 @@ export async function handleBalance(
     return;
   }
 
-  const account = await accountService.getOrCreate(telegramId);
-  const balance = await walletService.getUsdcBalance(account.address);
-  await ctx.reply(`USDC balance: ${walletService.formatUsdc(balance)}`);
+  const account = await accountService.getCurrentAccount(telegramId);
+  const balance = await walletService.getUsdcBalance(account.address, account.network);
+  const formattedBalance = await walletService.formatUsdc(balance, account.network);
+  await ctx.reply(`USDC balance on ${account.network.displayName}: ${formattedBalance}`);
 }

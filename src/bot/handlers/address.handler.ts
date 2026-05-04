@@ -5,7 +5,7 @@ import { getTelegramId } from './context';
 
 export async function handleAddress(
   ctx: Context,
-  accountService: Pick<AccountService, 'getOrCreate'>,
+  accountService: Pick<AccountService, 'getCurrentAccount'>,
 ): Promise<void> {
   const telegramId = getTelegramId(ctx);
   if (!telegramId) {
@@ -13,9 +13,9 @@ export async function handleAddress(
     return;
   }
 
-  const account = await accountService.getOrCreate(telegramId);
+  const account = await accountService.getCurrentAccount(telegramId);
   const qrPng = await QRCode.toBuffer(account.address);
   await ctx.replyWithPhoto(new InputFile(qrPng, 'zerokey-address.png'), {
-    caption: account.address,
+    caption: `${account.network.displayName} (${account.network.chainId})\n${account.address}`,
   });
 }

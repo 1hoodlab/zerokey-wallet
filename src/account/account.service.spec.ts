@@ -1,75 +1,125 @@
-import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { AccountService } from './account.service';
-import { PrismaService } from '../database/prisma.service';
-import { WalletService } from '../wallet/wallet.service';
+
+const network = {
+  id: 'net-1',
+  slug: 'bsc_testnet',
+  chainId: 97,
+  displayName: 'BSC Testnet',
+  rpcUrl: 'https://example.test/rpc',
+  usdcAddress: '0xaD88B079712CC38a8D33E072CB6434E652556441',
+  enabled: true,
+  createdAt: new Date(),
+};
+
+const telegramId = 123456789n;
+const address = '0x00000000000000000000000000000000075bcd15';
 
 describe('AccountService', () => {
-  const telegramId = 123456789n;
-  const address = '0x00000000000000000000000000000000075bcd15';
-
-  it('returns an existing account without deriving a new address', async () => {
-    const prismaService = {
-      user: {
-        findUnique: jest.fn().mockResolvedValue({ telegramId, address, createdAt: new Date() }),
+  it('returns existing address for the network without deriving', async () => {
+    const prismaService = createPrisma({
+      userNetworkAddress: {
+        findUnique: jest.fn().mockResolvedValue({ telegramId, networkId: network.id, address }),
       },
-    };
+    });
     const walletService = { deriveAddress: jest.fn() };
-    const service = await createService(prismaService, walletService);
+    const service = new AccountService(prismaService, walletService as never, {} as never);
 
-    await expect(service.getOrCreate(telegramId)).resolves.toEqual({ address, isNew: false });
+    await expect(service.getOrCreateForNetwork(telegramId, network)).resolves.toEqual({
+      address,
+      networkId: network.id,
+      isNew: false,
+    });
     expect(walletService.deriveAddress).not.toHaveBeenCalled();
   });
 
-  it('derives and creates an account for a new telegram user', async () => {
-    const prismaService = {
-      user: {
+  it('derives and creates an address for an unseen (user, network) pair', async () => {
+    const createAddressRow = jest.fn().mockResolvedValue({ telegramId, networkId: network.id, address });
+    const prismaService = createPrisma({
+      userNetworkAddress: {
         findUnique: jest.fn().mockResolvedValue(null),
-        create: jest.fn().mockResolvedValue({ telegramId, address, createdAt: new Date() }),
+        create: createAddressRow,
       },
-    };
+      user: {
+        upsert: jest.fn().mockResolvedValue({ telegramId, selectedNetworkId: network.id }),
+      },
+    });
     const walletService = { deriveAddress: jest.fn().mockResolvedValue(address) };
-    const service = await createService(prismaService, walletService);
+    const service = new AccountService(prismaService, walletService as never, {} as never);
 
-    await expect(service.getOrCreate(telegramId)).resolves.toEqual({ address, isNew: true });
-    expect(prismaService.user.create).toHaveBeenCalledWith({ data: { telegramId, address } });
+    await expect(service.getOrCreateForNetwork(telegramId, network)).resolves.toEqual({
+      address,
+      networkId: network.id,
+      isNew: true,
+    });
+    expect(createAddressRow).toHaveBeenCalledWith({
+      data: { telegramId, networkId: network.id, address },
+    });
   });
 
-  it('recovers from unique races by re-fetching the account', async () => {
-    const uniqueError = new Prisma.PrismaClientKnownRequestError('unique', {
-      code: 'P2002',
-      clientVersion: 'test',
-    });
-    const prismaService = {
-      user: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValueOnce(null)
-          .mockResolvedValueOnce({ telegramId, address, createdAt: new Date() }),
-        create: jest.fn().mockRejectedValue(uniqueError),
-        findUniqueOrThrow: jest
-          .fn()
-          .mockResolvedValue({ telegramId, address, createdAt: new Date() }),
+  it('recovers from unique races by re-fetching the (user, network) row', async () => {
+    const findUniqueAddress = jest
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ telegramId, networkId: network.id, address });
+    const createAddressRow = jest.fn().mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: '1' }),
+    );
+    const prismaService = createPrisma({
+      userNetworkAddress: {
+        findUnique: findUniqueAddress,
+        create: createAddressRow,
       },
-    };
+      user: {
+        upsert: jest.fn().mockResolvedValue({ telegramId, selectedNetworkId: network.id }),
+      },
+    });
     const walletService = { deriveAddress: jest.fn().mockResolvedValue(address) };
-    const service = await createService(prismaService, walletService);
+    const service = new AccountService(prismaService, walletService as never, {} as never);
 
-    await expect(service.getOrCreate(telegramId)).resolves.toEqual({ address, isNew: false });
+    await expect(service.getOrCreateForNetwork(telegramId, network)).resolves.toEqual({
+      address,
+      networkId: network.id,
+      isNew: false,
+    });
+  });
+
+  it('getCurrentAccount loads user with selected network and resolves address', async () => {
+    const prismaService = createPrisma({
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ telegramId }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          telegramId,
+          selectedNetworkId: network.id,
+          selectedNetwork: network,
+        }),
+      },
+      userNetworkAddress: {
+        findUnique: jest.fn().mockResolvedValue({ telegramId, networkId: network.id, address }),
+      },
+    });
+    const walletService = { deriveAddress: jest.fn() };
+    const service = new AccountService(prismaService, walletService as never, {} as never);
+
+    const result = await service.getCurrentAccount(telegramId);
+    expect(result).toEqual({ address, network, isNew: false });
   });
 });
 
-async function createService(
-  prismaService: object,
-  walletService: object,
-): Promise<AccountService> {
-  const moduleRef = await Test.createTestingModule({
-    providers: [
-      AccountService,
-      { provide: PrismaService, useValue: prismaService },
-      { provide: WalletService, useValue: walletService },
-    ],
-  }).compile();
-
-  return moduleRef.get(AccountService);
+function createPrisma(overrides: Record<string, unknown>) {
+  return {
+    user: {
+      findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+      upsert: jest.fn(),
+      update: jest.fn(),
+      create: jest.fn(),
+      ...(overrides.user as object | undefined),
+    },
+    userNetworkAddress: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      ...(overrides.userNetworkAddress as object | undefined),
+    },
+  } as never;
 }

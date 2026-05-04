@@ -1,9 +1,11 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
+import type { Network } from '@prisma/client';
 import { TransferStatus } from '@prisma/client';
 import type { Hex } from 'viem';
 import { NoPendingTransferError, OtpExpiredError, OtpInvalidError } from '../common/exceptions';
 import { PrismaService } from '../database/prisma.service';
+import { NetworkRegistryService } from '../network/network-registry.service';
 import { OtpService } from '../otp/otp.service';
 import { WalletService } from '../wallet/wallet.service';
 import { TransferService } from './transfer.service';
@@ -38,9 +40,21 @@ const telegramId = 123456789n;
 const recipient = '0x0000000000000000000000000000000000000001' as Hex;
 const txHash = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Hex;
 
+const pinnedNetwork: Network = {
+  id: 'net-test-id',
+  slug: 'bsc_testnet',
+  chainId: 97,
+  displayName: 'BSC Testnet',
+  rpcUrl: 'https://example.test/rpc',
+  usdcAddress: '0xaD88B079712CC38a8D33E072CB6434E652556441',
+  enabled: true,
+  createdAt: new Date(),
+};
+
 interface PendingTransferMock {
   id: string;
   telegramId: bigint;
+  networkId: string;
   recipient: Hex;
   amount: string;
   otpHash: string;
@@ -57,7 +71,7 @@ describe('TransferService', () => {
     const otpService = createMockOtp();
     const service = await createService(prismaService, otpService);
 
-    await expect(service.initiate(telegramId, recipient, 100000n)).resolves.toEqual({
+    await expect(service.initiate(telegramId, pinnedNetwork, recipient, 100000n)).resolves.toEqual({
       transferId: 'transfer-1',
       code: '142857',
     });
@@ -68,6 +82,7 @@ describe('TransferService', () => {
     expect(prismaService.pendingTransfer.create).toHaveBeenCalledWith({
       data: {
         telegramId,
+        networkId: pinnedNetwork.id,
         recipient,
         amount: '100000',
         otpHash: 'hashed-otp',
@@ -146,7 +161,12 @@ describe('TransferService', () => {
     const service = await createService(prismaService, createMockOtp(), walletService);
 
     await expect(service.confirm(telegramId, '142857')).resolves.toEqual({ hash: txHash });
-    expect(walletService.sendUsdc).toHaveBeenCalledWith(telegramId, recipient, 100000n);
+    expect(walletService.sendUsdc).toHaveBeenCalledWith(
+      telegramId,
+      pinnedNetwork,
+      recipient,
+      100000n,
+    );
     expect(prismaService.pendingTransfer.updateMany).toHaveBeenCalledWith({
       where: { id: 'transfer-1', status: TransferStatus.AWAITING_OTP },
       data: { status: TransferStatus.BROADCASTING },
@@ -182,7 +202,7 @@ describe('TransferService', () => {
 
     await service.pollReceipt('transfer-1', txHash);
 
-    expect(walletService.waitForUsdcTransfer).toHaveBeenCalledWith(telegramId, txHash);
+    expect(walletService.waitForUsdcTransfer).toHaveBeenCalledWith(pinnedNetwork, txHash);
     expect(prismaService.pendingTransfer.update).toHaveBeenCalledWith({
       where: { id: 'transfer-1' },
       data: { status: TransferStatus.CONFIRMED },
@@ -230,6 +250,7 @@ function createPendingTransfer(overrides: Partial<PendingTransferMock> = {}): Pe
   return {
     id: 'transfer-1',
     telegramId,
+    networkId: pinnedNetwork.id,
     recipient,
     amount: '100000',
     otpHash: 'hashed-otp',
@@ -254,6 +275,12 @@ async function createService(
       { provide: PrismaService, useValue: prismaService },
       { provide: OtpService, useValue: otpService },
       { provide: WalletService, useValue: walletService },
+      {
+        provide: NetworkRegistryService,
+        useValue: {
+          findByIdOrThrow: jest.fn().mockResolvedValue(pinnedNetwork),
+        },
+      },
       { provide: EventEmitter2, useValue: eventEmitter },
     ],
   }).compile();

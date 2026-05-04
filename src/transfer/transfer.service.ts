@@ -1,10 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import type { Network } from '@prisma/client';
 import { TransferStatus } from '@prisma/client';
 import type { Hex } from 'viem';
 import { NoPendingTransferError, OtpExpiredError, OtpInvalidError } from '../common/exceptions';
 import { TRANSFER_CONFIRMED_EVENT, TRANSFER_FAILED_EVENT } from '../common/events';
 import { PrismaService } from '../database/prisma.service';
+import { NetworkRegistryService } from '../network/network-registry.service';
 import { OtpService } from '../otp/otp.service';
 import { WalletService } from '../wallet/wallet.service';
 
@@ -28,12 +30,15 @@ export class TransferService {
     private readonly otpService: OtpService,
     @Inject(WalletService)
     private readonly walletService: WalletService,
+    @Inject(NetworkRegistryService)
+    private readonly networkRegistryService: NetworkRegistryService,
     @Inject(EventEmitter2)
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async initiate(
     telegramId: bigint,
+    network: Network,
     recipientAddress: Hex,
     amountBaseUnits: bigint,
   ): Promise<InitiatedTransfer> {
@@ -46,6 +51,7 @@ export class TransferService {
     const pendingTransfer = await this.prismaService.pendingTransfer.create({
       data: {
         telegramId,
+        networkId: network.id,
         recipient: recipientAddress,
         amount: amountBaseUnits.toString(),
         otpHash: this.otpService.hashCode(code),
@@ -102,8 +108,12 @@ export class TransferService {
     await hooks?.afterOtpAccepted?.();
 
     try {
+      const pinnedNetwork = await this.networkRegistryService.findByIdOrThrow(
+        pendingTransfer.networkId,
+      );
       const txHash = await this.walletService.sendUsdc(
         telegramId,
+        pinnedNetwork,
         pendingTransfer.recipient as Hex,
         BigInt(pendingTransfer.amount),
       );
@@ -132,8 +142,12 @@ export class TransferService {
       throw new NoPendingTransferError();
     }
 
+    const pinnedNetwork = await this.networkRegistryService.findByIdOrThrow(
+      transferToPoll.networkId,
+    );
+
     try {
-      await this.waitForReceiptWithTimeout(transferToPoll.telegramId, hash);
+      await this.waitForReceiptWithTimeout(pinnedNetwork, hash);
     } catch (error) {
       const status =
         error instanceof ReceiptTimeoutError ? TransferStatus.TIMEOUT : TransferStatus.FAILED;
@@ -173,11 +187,11 @@ export class TransferService {
     });
   }
 
-  private async waitForReceiptWithTimeout(telegramId: bigint, hash: Hex): Promise<void> {
+  private async waitForReceiptWithTimeout(network: Network, hash: Hex): Promise<void> {
     let timeoutId: NodeJS.Timeout | undefined;
     try {
       await Promise.race([
-        this.walletService.waitForUsdcTransfer(telegramId, hash),
+        this.walletService.waitForUsdcTransfer(network, hash),
         new Promise<never>((_, reject) => {
           timeoutId = setTimeout(() => reject(new ReceiptTimeoutError()), 60_000);
         }),

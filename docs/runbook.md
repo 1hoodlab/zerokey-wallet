@@ -19,6 +19,25 @@ pnpm prisma generate
 Prisma 7 reads `DATABASE_URL` from `prisma.config.ts`, so keep `.env` populated
 before running CLI commands.
 
+After schema changes, apply migrations and refresh seeds when needed:
+
+```bash
+pnpm prisma migrate deploy
+pnpm prisma db seed
+```
+
+## Network configuration
+
+RPC URLs, chain IDs, and USDC contract addresses live in the `networks` table.
+Rows are maintained in `prisma/seed.ts` (upsert by `slug`). Edit that file and run:
+
+```bash
+pnpm prisma db seed
+```
+
+The bot caches viem HTTP transports per `chain_id` for the lifetime of the process;
+restart the bot after changing an `rpc_url`.
+
 ## Refill Smart Account Gas
 
 1. Use `/address` to get the user's smart account address.
@@ -55,19 +74,24 @@ Look for these cases:
 
 ## Wallet Integration Tests
 
-`src/wallet/wallet.integration.spec.ts` is skipped unless funded testnet credentials
-are provided:
+`src/wallet/wallet.integration.spec.ts` is skipped unless funded credentials **and**
+a seeded database are provided. Chain metadata (`rpc_url`, `chain_id`, `usdc_address`)
+comes from the `networks` row selected by `TEST_NETWORK_SLUG`:
 
 ```bash
+DATABASE_URL="postgresql://..."
 TEST_SERVER_EOA_PRIVATE_KEY="0x..."
 TEST_PIMLICO_API_KEY="..."
-TEST_BSC_TESTNET_RPC_URL="https://data-seed-prebsc-1-s1.binance.org:8545"
-TEST_USDC_ADDRESS_BSC_TESTNET="0xaD88B079712CC38a8D33E072CB6434E652556441"
+TEST_NETWORK_SLUG="bsc_testnet"
 pnpm test:integration
 ```
 
-The integration gate remains blocked until a funded BSC testnet smart account and
-Pimlico API key are available.
+Apply migrations and seed before running integration tests:
+
+```bash
+pnpm prisma migrate deploy
+pnpm prisma db seed
+```
 
 ## Manual Smoke Test
 
@@ -77,7 +101,9 @@ Pimlico API key are available.
 4. Send `/address`; expect QR image and text address.
 5. Fund the address with BSC testnet USDC and required BNB for gas.
 6. Send `/balance`; expect current USDC amount.
-7. Send `/send 0.1 0x0000000000000000000000000000000000000001`; expect OTP challenge.
-8. Reply with the OTP; expect submitted transaction and later status message.
-9. Start another send and reply wrong OTP three times; expect cancellation.
-10. Start another send and wait more than 5 minutes; expect expiry when confirming.
+7. Send `/networks`; expect at least one enabled network with `[current]` on your slug.
+8. Send `/switch bsc_testnet`; expect confirmation with chain id and address.
+9. Send `/send 0.1 0x0000000000000000000000000000000000000001`; expect OTP challenge.
+10. Reply with the OTP; expect submitted transaction and later status message.
+11. Start another send and reply wrong OTP three times; expect cancellation.
+12. Start another send and wait more than 5 minutes; expect expiry when confirming.

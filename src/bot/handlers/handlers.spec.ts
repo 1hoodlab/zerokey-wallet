@@ -1,7 +1,9 @@
 import type { Context } from 'grammy';
 import { OtpExpiredError, OtpInvalidError } from '../../common/exceptions';
+import { handleNetworks } from './networks.handler';
 import { handleOtp } from './otp.handler';
 import { handleSend } from './send.handler';
+import { handleSwitch } from './switch.handler';
 
 type MockContext = Context & {
   reply: jest.Mock;
@@ -12,6 +14,17 @@ type MockContext = Context & {
 
 describe('bot command handlers', () => {
   const recipient = '0x0000000000000000000000000000000000000001';
+
+  const sampleNetwork = {
+    id: 'net-1',
+    slug: 'bsc_testnet',
+    chainId: 97,
+    displayName: 'BSC Testnet',
+    rpcUrl: 'https://example.test/rpc',
+    usdcAddress: '0xaD88B079712CC38a8D33E072CB6434E652556441',
+    enabled: true,
+    createdAt: new Date(),
+  };
 
   it('handleSend replies with usage for missing args', async () => {
     const ctx = createContext('/send');
@@ -78,6 +91,115 @@ describe('bot command handlers', () => {
 
     expect(ctx.reply).toHaveBeenCalledWith('Invalid OTP. 2 retries left.');
   });
+
+  describe('/networks handler', () => {
+    it('lists enabled networks with the user current selection marked', async () => {
+      const ctx = createContext('/networks');
+      const accountService = {
+        getCurrentAccount: jest.fn().mockResolvedValue({
+          address: '0x00000000000000000000000000000000075bcd15',
+          network: {
+            id: 'net-1',
+            slug: 'bsc_testnet',
+            displayName: 'BSC Testnet',
+            chainId: 97,
+          },
+          isNew: false,
+        }),
+      };
+      const networkRegistryService = {
+        listEnabled: jest.fn().mockResolvedValue([
+          sampleNetwork,
+          {
+            ...sampleNetwork,
+            id: 'net-2',
+            slug: 'eth_sepolia',
+            displayName: 'Ethereum Sepolia',
+            chainId: 11155111,
+          },
+        ]),
+      };
+
+      await handleNetworks(ctx, accountService as never, networkRegistryService as never);
+
+      const replyText = ctx.reply.mock.calls[0][0] as string;
+      expect(replyText).toContain('• bsc_testnet — BSC Testnet (97) [current]');
+      expect(replyText).toContain('• eth_sepolia — Ethereum Sepolia (11155111)');
+    });
+  });
+
+  describe('/switch handler', () => {
+    const listedNetwork = {
+      id: 'net-1',
+      slug: 'bsc_testnet',
+      displayName: 'BSC Testnet',
+      chainId: 97,
+      rpcUrl: 'https://example.test/rpc',
+      usdcAddress: '0xaD88B079712CC38a8D33E072CB6434E652556441',
+      enabled: true,
+      createdAt: new Date(),
+    };
+
+    it('replies with the new network and address on success', async () => {
+      const ctx = createContext('/switch BSC_Testnet');
+      const accountService = {
+        switchNetwork: jest.fn().mockResolvedValue({
+          address: '0x00000000000000000000000000000000075bcd15',
+          network: listedNetwork,
+          isNew: false,
+        }),
+      };
+      const networkRegistryService = {
+        findBySlug: jest.fn().mockResolvedValue(listedNetwork),
+        listEnabled: jest.fn().mockResolvedValue([listedNetwork]),
+      };
+
+      await handleSwitch(ctx, accountService as never, networkRegistryService as never);
+
+      expect(networkRegistryService.findBySlug).toHaveBeenCalledWith('BSC_Testnet');
+      expect(accountService.switchNetwork).toHaveBeenCalledWith(123456789n, listedNetwork);
+      const replyText = ctx.reply.mock.calls[0][0] as string;
+      expect(replyText).toContain('Switched to BSC Testnet (97)');
+      expect(replyText).toContain('0x00000000000000000000000000000000075bcd15');
+    });
+
+    it('rejects unknown slug with usage hint', async () => {
+      const ctx = createContext('/switch nope');
+      const accountService = { switchNetwork: jest.fn() };
+      const networkRegistryService = {
+        findBySlug: jest.fn().mockResolvedValue(null),
+        listEnabled: jest.fn().mockResolvedValue([
+          {
+            ...listedNetwork,
+            id: 'net-1',
+            slug: 'bsc_testnet',
+            displayName: 'BSC Testnet',
+            chainId: 97,
+          },
+        ]),
+      };
+
+      await handleSwitch(ctx, accountService as never, networkRegistryService as never);
+
+      expect(accountService.switchNetwork).not.toHaveBeenCalled();
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Unknown network. Try /networks.'),
+      );
+    });
+
+    it('replies with usage when slug missing', async () => {
+      const ctx = createContext('/switch');
+      const accountService = { switchNetwork: jest.fn() };
+      const networkRegistryService = {
+        findBySlug: jest.fn(),
+        listEnabled: jest.fn().mockResolvedValue([]),
+      };
+
+      await handleSwitch(ctx, accountService as never, networkRegistryService as never);
+
+      expect(ctx.reply).toHaveBeenCalledWith('Usage: /switch <network_slug>');
+    });
+  });
 });
 
 function createContext(text: string): MockContext {
@@ -91,18 +213,31 @@ function createContext(text: string): MockContext {
 
 function createAccountService() {
   return {
-    getOrCreate: jest.fn().mockResolvedValue({
+    getCurrentAccount: jest.fn().mockResolvedValue({
       address: '0x00000000000000000000000000000000075bcd15',
+      network: {
+        id: 'net-1',
+        slug: 'bsc_testnet',
+        chainId: 97,
+        displayName: 'BSC Testnet',
+        rpcUrl: 'https://example.test/rpc',
+        usdcAddress: '0xaD88B079712CC38a8D33E072CB6434E652556441',
+        enabled: true,
+        createdAt: new Date(),
+      },
       isNew: false,
     }),
+    ensureUserOnDefaultNetwork: jest.fn(),
+    switchNetwork: jest.fn(),
   };
 }
 
 function createWalletService(options: { balance?: bigint } = {}) {
+  const decimals = 6;
   return {
-    parseUsdc: jest.fn((amount: string) => BigInt(Number(amount) * 1_000_000)),
-    formatUsdc: jest.fn((amountBaseUnits: bigint) =>
-      (Number(amountBaseUnits) / 1_000_000).toString(),
+    parseUsdc: jest.fn(async (amount: string) => BigInt(Number(amount) * 10 ** decimals)),
+    formatUsdc: jest.fn(async (amountBaseUnits: bigint) =>
+      (Number(amountBaseUnits) / 10 ** decimals).toString(),
     ),
     getUsdcBalance: jest.fn().mockResolvedValue(options.balance ?? 2_000_000n),
   };

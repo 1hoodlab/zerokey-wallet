@@ -8,15 +8,13 @@ describe('config', () => {
     BOT_TOKEN: '1234567:ABCDEF',
     SERVER_EOA_PRIVATE_KEY: '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     PIMLICO_API_KEY: 'test-pimlico-api-key',
-    BSC_TESTNET_RPC_URL: 'https://data-seed-prebsc-1-s1.binance.org:8545',
-    USDC_ADDRESS_BSC_TESTNET: '0xaD88B079712CC38a8D33E072CB6434E652556441',
     OTP_TTL_SECONDS: 300,
     OTP_MAX_RETRIES: 3,
     LOG_LEVEL: 'info',
     NODE_ENV: 'test',
   };
 
-  it('accepts Pimlico configuration without legacy provider credentials', () => {
+  it('accepts Pimlico configuration without legacy chain credentials', () => {
     const validation = envSchema.validate(validEnvironment);
 
     expect(validation.error).toBeUndefined();

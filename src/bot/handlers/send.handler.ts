@@ -11,7 +11,7 @@ function escapeTelegramHtml(text: string): string {
 
 export async function handleSend(
   ctx: Context,
-  accountService: Pick<AccountService, 'getOrCreate'>,
+  accountService: Pick<AccountService, 'getCurrentAccount'>,
   walletService: Pick<WalletService, 'getUsdcBalance' | 'parseUsdc' | 'formatUsdc'>,
   transferService: Pick<TransferService, 'initiate'>,
 ): Promise<void> {
@@ -33,7 +33,7 @@ export async function handleSend(
     return;
   }
 
-  const account = await accountService.getOrCreate(telegramId);
+  const account = await accountService.getCurrentAccount(telegramId);
   const recipientAddress = getAddress(recipientText);
   if (recipientAddress === zeroAddress || recipientAddress === getAddress(account.address)) {
     await ctx.reply('Recipient address is not allowed.');
@@ -42,7 +42,7 @@ export async function handleSend(
 
   let amountBaseUnits: bigint;
   try {
-    amountBaseUnits = walletService.parseUsdc(amountText);
+    amountBaseUnits = await walletService.parseUsdc(amountText, account.network);
   } catch {
     await ctx.reply('Invalid USDC amount.');
     return;
@@ -53,7 +53,7 @@ export async function handleSend(
     return;
   }
 
-  const balance = await walletService.getUsdcBalance(account.address);
+  const balance = await walletService.getUsdcBalance(account.address, account.network);
   if (balance < amountBaseUnits) {
     await ctx.reply('Insufficient USDC balance.');
     return;
@@ -61,15 +61,18 @@ export async function handleSend(
 
   const transfer = await transferService.initiate(
     telegramId,
+    account.network,
     recipientAddress as Hex,
     amountBaseUnits,
   );
-  const amountFormatted = escapeTelegramHtml(walletService.formatUsdc(amountBaseUnits));
+  const amountFormatted = escapeTelegramHtml(
+    await walletService.formatUsdc(amountBaseUnits, account.network),
+  );
   const recipientEscaped = escapeTelegramHtml(recipientAddress);
 
   await ctx.reply(
     [
-      `Confirm send of ${amountFormatted} USDC.`,
+      `Confirm send of ${amountFormatted} USDC on ${account.network.displayName}.`,
       `Recipient: ${recipientEscaped}`,
       `OTP: <tg-spoiler>${escapeTelegramHtml(transfer.code)}</tg-spoiler>`,
       'Reply with the 6-digit OTP within 5 minutes.',

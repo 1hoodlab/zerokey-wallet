@@ -25,14 +25,6 @@ export class AppConfigService {
     return this.configService.getOrThrow<string>('PIMLICO_API_KEY');
   }
 
-  get bscTestnetRpcUrl(): string {
-    return this.configService.getOrThrow<string>('BSC_TESTNET_RPC_URL');
-  }
-
-  get usdcAddress(): Hex {
-    return this.configService.getOrThrow<Hex>('USDC_ADDRESS_BSC_TESTNET');
-  }
-
   get otpTtlSeconds(): number {
     return Number(this.configService.getOrThrow<number>('OTP_TTL_SECONDS'));
   }
