@@ -6,19 +6,53 @@ datasource db {
   provider = "postgresql"
 }
 
+model Network {
+  id               String                @id @default(uuid())
+  slug             String                @unique
+  chainId          Int                   @map("chain_id")
+  displayName      String                @map("display_name")
+  rpcUrl           String                @map("rpc_url")
+  usdcAddress      String                @map("usdc_address")
+  enabled          Boolean               @default(true)
+  createdAt        DateTime              @default(now()) @map("created_at")
+
+  users            User[]
+  userAddresses    UserNetworkAddress[]
+  pendingTransfers PendingTransfer[]
+
+  @@map("networks")
+}
+
 model User {
-  telegramId BigInt            @id @map("telegram_id")
-  address    String            @unique
-  createdAt  DateTime          @default(now()) @map("created_at")
-  transfers  PendingTransfer[]
+  telegramId        BigInt               @id @map("telegram_id")
+  selectedNetworkId String               @map("selected_network_id")
+  selectedNetwork   Network              @relation(fields: [selectedNetworkId], references: [id])
+  createdAt         DateTime             @default(now()) @map("created_at")
+
+  transfers         PendingTransfer[]
+  addresses         UserNetworkAddress[]
 
   @@map("users")
+}
+
+model UserNetworkAddress {
+  telegramId BigInt   @map("telegram_id")
+  networkId  String   @map("network_id")
+  address    String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [telegramId], references: [telegramId])
+  network Network @relation(fields: [networkId], references: [id])
+
+  @@id([telegramId, networkId])
+  @@unique([networkId, address])
+  @@map("user_network_addresses")
 }
 
 model PendingTransfer {
   id          String         @id @default(uuid())
   telegramId  BigInt         @map("telegram_id")
-  user        User           @relation(fields: [telegramId], references: [telegramId])
+  networkId   String         @map("network_id")
   recipient   String
   amount      String
   otpHash     String         @map("otp_hash")
@@ -27,6 +61,9 @@ model PendingTransfer {
   txHash      String?        @map("tx_hash")
   createdAt   DateTime       @default(now()) @map("created_at")
   confirmedAt DateTime?      @map("confirmed_at")
+
+  user    User    @relation(fields: [telegramId], references: [telegramId])
+  network Network @relation(fields: [networkId], references: [id])
 
   @@index([telegramId, status])
   @@map("pending_transfers")
