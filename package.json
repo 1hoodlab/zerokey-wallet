@@ -19,6 +19,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
+    "contracts:compile": "pnpm --filter @zerokey-wallet/contracts compile",
+    "contracts:test": "pnpm --filter @zerokey-wallet/contracts test",
+    "contracts:deploy:bsc-testnet": "pnpm --filter @zerokey-wallet/contracts deploy:bsc-testnet",
     "prepare": "husky"
   },
   "lint-staged": {
