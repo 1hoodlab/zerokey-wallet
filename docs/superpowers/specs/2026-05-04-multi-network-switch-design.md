@@ -228,7 +228,7 @@ Initial seeded row, derived from current `.env.example`:
 - `chain_id = 97`
 - `display_name = "BSC Testnet"`
 - `rpc_url = "https://data-seed-prebsc-1-s1.binance.org:8545"`
-- `usdc_address = "0xaD88B079712CC38a8D33E072CB6434E652556441"`
+- `usdc_address = "0xd73d3E44a6184179cd9c09cb2e2647981b716568"`
 - `enabled = true`
 
 A "default network" is identified by a hard-coded slug constant

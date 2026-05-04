@@ -173,7 +173,7 @@ VALUES (
     97,
     'BSC Testnet',
     'https://data-seed-prebsc-1-s1.binance.org:8545',
-    '0xaD88B079712CC38a8D33E072CB6434E652556441',
+    '0xd73d3E44a6184179cd9c09cb2e2647981b716568',
     true
 );
 
@@ -300,7 +300,7 @@ const NETWORKS: ReadonlyArray<NetworkSeed> = [
     chainId: 97,
     displayName: 'BSC Testnet',
     rpcUrl: 'https://data-seed-prebsc-1-s1.binance.org:8545',
-    usdcAddress: '0xaD88B079712CC38a8D33E072CB6434E652556441',
+    usdcAddress: '0xd73d3E44a6184179cd9c09cb2e2647981b716568',
     enabled: true,
   },
 ];
@@ -399,7 +399,7 @@ describe('NetworkRegistryService', () => {
     chainId: 97,
     displayName: 'BSC Testnet',
     rpcUrl: 'https://example.test/rpc',
-    usdcAddress: '0xaD88B079712CC38a8D33E072CB6434E652556441',
+    usdcAddress: '0xd73d3E44a6184179cd9c09cb2e2647981b716568',
     enabled: true,
     createdAt: new Date(),
   };
@@ -624,7 +624,7 @@ describe('WalletService', () => {
     chainId: 97,
     displayName: 'BSC Testnet',
     rpcUrl: 'https://example.test/rpc',
-    usdcAddress: '0xaD88B079712CC38a8D33E072CB6434E652556441',
+    usdcAddress: '0xd73d3E44a6184179cd9c09cb2e2647981b716568',
     enabled: true,
     createdAt: new Date(),
   };
@@ -921,7 +921,7 @@ const network = {
   chainId: 97,
   displayName: 'BSC Testnet',
   rpcUrl: 'https://example.test/rpc',
-  usdcAddress: '0xaD88B079712CC38a8D33E072CB6434E652556441',
+  usdcAddress: '0xd73d3E44a6184179cd9c09cb2e2647981b716568',
   enabled: true,
   createdAt: new Date(),
 };
@@ -1677,7 +1677,7 @@ function createAccountService() {
     chainId: 97,
     displayName: 'BSC Testnet',
     rpcUrl: 'https://example.test/rpc',
-    usdcAddress: '0xaD88B079712CC38a8D33E072CB6434E652556441',
+    usdcAddress: '0xd73d3E44a6184179cd9c09cb2e2647981b716568',
     enabled: true,
     createdAt: new Date(),
   };

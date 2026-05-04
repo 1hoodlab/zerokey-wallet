@@ -7,7 +7,7 @@ describe('NetworkRegistryService', () => {
     chainId: 97,
     displayName: 'BSC Testnet',
     rpcUrl: 'https://example.test/rpc',
-    usdcAddress: '0xaD88B079712CC38a8D33E072CB6434E652556441',
+    usdcAddress: '0xd73d3E44a6184179cd9c09cb2e2647981b716568',
     enabled: true,
     createdAt: new Date(),
   };
